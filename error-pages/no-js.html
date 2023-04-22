@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>JS not enabled</title>
+        <link rel="stylesheet" href="../assets/bootstrap/5.3.0/css/bootstrap.min.css" />
+        <link href="../assets/fontawesome/6.3.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="d-flex align-items-center justify-content-center vh-100">
+            <div class="text-center">
+                <h1 class="display-1 fw-bold"><i class="fa-brands fa-square-js"></i></h1>
+                <p class="fs-3"> <span class="text-danger">Opps!</span> It seems that you have JS disabled.</p>
+                <p class="lead">The page need JS to work. You can enable it in your browser settings.</p>
+                <a href="index.html" class="btn btn-primary">I've enabled JS</a>
+            </div>
+        </div>
+    </body>
+    <script>
+        document.querySelector("a").addEventListener("click", function() {
+            window.location.href = "index.html";
+        });
+    </script>
+
+</html>

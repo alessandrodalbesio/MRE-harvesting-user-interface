@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- meta tags definition -->
+  <title>Index</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta description="Page for the management of the models and textures" />
+  <meta author="Alessandro Dalbesio, CREATE Lab (EPFL)" />
+
+  <!-- CSS loading -->
+  <link rel="stylesheet" href="assets/bootstrap/5.3.0/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="assets/fontawesome/6.3.0/css/all.min.css" />
+  <link rel="stylesheet" href="assets/css/index.css" />
+  <link rel="stylesheet" href="assets/css/main.css" />
+
+  <!-- If JS is not enable redirect the user -->
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=error-pages/no-js.html" />
+  </noscript>
+</head>
+
+<body>
+  <div class="container mt-4 header">
+    <div class="row">
+      <div class="d-none d-sm-block col-auto">
+        <h1>ProjectName manage</h1>
+      </div>
+      <div class="ms-auto col-auto" id="newModelRedirectButton">
+        <button type="button" class="btn btn-primary shadow-sm">
+          <span>Upload new model</span> <i class="fa-solid fa-plus"></i>
+        </button>
+      </div>
+    </div>
+    <div class="alert-banner" id="main-alert"></div>
+  </div>
+
+  <div class="container mt-4" id="searchBar">
+    <div class="row">
+      <div class="col-12">
+        <input type="text" placeholder="Insert model name" />
+      </div>
+    </div>
+  </div>
+
+  <div class="container models" id="modelsList">
+    <div class="row mt-4">
+      <div class="col-12">
+        <h5>Model list</h5>
+      </div>
+    </div>
+  </div>
+  <style>
+    input.title {
+      border: none;
+      background-color: transparent;
+      font-size: 1.5rem;
+      font-weight: bold;
+      width: 100%;
+    }
+  </style>
+  <div class="container banner" id="modelBanner" data-model_id="">
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="container">
+          <i class="fa-solid fa-xmark close-banner"></i>
+          <div class="row header">
+            <div class="col-12">
+              <input class="title" id="modelNameBanner" value=""/>
+            </div>
+          </div>
+          <div class="alert-banner" id="banner-alert"></div>
+          <div class="row mt-2 body">
+            <div class="col-12 title">
+              <h5>Available Texture</h5>
+            </div>
+            <div class="col-12" id="uploadTexture">
+              <h5>Upload new texture</h5>
+              <div class="form-group mt-3">
+                <label for="selectTextureInputMethod">Select the texture type</label>
+                <select id="selectTextureInputMethod" class="form-select">
+                  <option selected value="default">Select</option>
+                  <option value="image">Image</option>
+                  <option value="color">Color</option>
+                </select>
+              </div>
+              <div class="form-group mt-3 d-none" id="textureInputMethodImage">
+                <label for="uploadTexture">Select the image</label>
+                <input type="file" class="form-control" id="uploadTexture" />
+              </div>
+              <div class="form-group mt-3 d-none" id="textureInputMethodColor">
+                <label for="uploadTexture">Select the color</label>
+                <input type="color" class="form-control" id="uploadTexture" />
+              </div>
+              <button class="btn btn-primary d-none mt-3" id="uploadNewTextureButton">Upload</button>
+            </div>
+          </div>
+          <div class="row mt-4">
+            <div class="col-12">
+              <h5>Danger area</h5>
+              <button class="btn btn-danger" id="deleteModelButton">Delete model</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="bannerOverlay" class="banner-overlay"></div>
+  <div id="imagePreviewForTextureCreation" class="d-none"></div>
+  <!-- Modal -->
+  <div class="modal fade" id="confirmModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="staticBackdropLabel">Confirm action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            No, I've changed my mind
+          </button>
+          <button type="button" class="btn btn-primary" id="confirmButtonConfirmModal">
+            Yes I confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS loading -->
+  <script src="assets/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/jquery/3.6.4/jquery-3.6.4.min.js"></script>
+  <script src="assets/js/inputValidation.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script type="importmap">
+    {
+        "imports": {
+            "three": "./assets/three.js/build/three.module.js",
+            "threeOBJLoader": "./assets/three.js/addons/loaders/OBJLoader.js",
+            "threeOrbitControls": "./assets/three.js/addons/controls/OrbitControls.js",
+            "modelPreview": "./assets/js/model-preview.js"
+        }
+    }
+  </script>
+  <script src="assets/js/index.js" type="module"></script>
+</body>
+
+</html>

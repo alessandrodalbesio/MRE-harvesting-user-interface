@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Upload new model</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta description="Page for the upload of new models" />
+    <meta author="Alessandro Dalbesio, CREATE Lab (EPFL)" />
+
+    <!-- Styling importing -->
+    <link rel="stylesheet" href="assets/bootstrap/5.3.0/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="assets/fontawesome/6.3.0/css/all.min.css" />
+    <link rel="stylesheet" href="assets/css/new-model.css" />
+    <link rel="stylesheet" href="assets/css/main.css" />
+
+    <!-- If JS is not enable redirect the user -->
+    <noscript>
+        <meta http-equiv="refresh" content="0; url=error-pages/no-js.html" />
+    </noscript>
+</head>
+
+<body>
+    <!-- Header section -->
+    <div class="container mt-4" id="header">
+        <div class="row">
+            <div class="d-none d-sm-block col-auto">
+                <h1>Upload model</h1>
+            </div>
+            <div class="ms-auto col-auto">
+                <button type="button" class="btn btn-primary return">
+                    <span>Return to uploaded models</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Body section -->
+    <div class="container mt-4 mb-4" id="body">
+        <h4 class="mb-4">Upload section</h4>
+
+        <!-- Alert banner -->
+        <div class="alert-banner" id="main-alert"></div>
+
+        <!-- Form that doesn't send data -->
+        <div id="upload-form">
+            <!-- Model input row (Model Name and 3D Model inputs) -->
+            <div class="row g-3" id="model-input-row">
+                <div class="col need-validation">
+                    <label for="modelNameInput" class="form-label">Model Name</label>
+                    <input type="text" autocomplete="off" id="modelNameInput" class="form-control"
+                        placeholder="Model name">
+                    <span class="input-feedback"></span>
+                </div>
+                <div class="col need-validation">
+                    <label for="modelFileInput" class="form-label">3D Model</label>
+                    <input type="file" id="modelFileInput" class="form-control" accept=".obj" autocomplete="off">
+                    <span class="input-feedback"></span>
+                </div>
+            </div>
+
+            <!-- Texture input row (Texture input method and texture inputs) -->
+            <div class="row g-3 mt-1 hide" id="texture-selection-row">
+                <div class="col-12 need-validation">
+                    <label for="modelName" class="form-label">Texture Input Method</label>
+                    <select class="form-select" id="selectTextureInputMethod" autocomplete="off">
+                        <option selected value="default">Choose...</option>
+                        <option value="image">Upload image as texture</option>
+                        <option value="color">Select color</option>
+                    </select>
+                </div>
+                <div class="col-6 texture-input-method hide">
+                    <label for="texture-image" class="form-label">Texture Image</label>
+                    <input type="file" id="texture-image" class="form-control" accept=".png,.jpg,.jpeg"
+                        autocomplete="off">
+                    <span class="input-feedback"></span>
+                </div>
+                <div class="col-6 texture-input-method hide">
+                    <label for="texture-color" class="form-label">Texture Color</label>
+                    <input type="color" id="texture-color" class="form-control" autocomplete="off">
+                    <span class="input-feedback"></span>
+                </div>
+            </div>
+            </form>
+
+            <!-- Model preview with THREE.js -->
+            <div class="row g-3 mt-4 hide" id="model-preview-row">
+                <h4>Model preview</h4>
+                <p>With this model preview you can select how the model will be displayed in the available models list.
+                </p>
+                <div id="preview">
+                    <div id="model-preview"></div>
+                    <div id="model-preview-options">
+                        <div class="elements-block">
+                            <h5>Lights settings</h5>
+                            <div class="element">
+                                <input type="checkbox" id="toggleAmbientLight" class="form-check-input">
+                                <label for="toggleAmbientLight" class="form-label">Ambient light</label>
+                            </div>
+                            <div class="element">
+                                <input type="checkbox" id="toggleShadows" class="form-check-input">
+                                <label for="toggleShadows" class="form-label">Shadows</label>
+                            </div>
+                        </div>
+                        <div class="elements-block">
+                            <h5>Ground settings</h5>
+                            <div class="element">
+                                <label for="groundColor" class="form-label">Ground color</label>
+                                <input type="color" id="groundColor" class="form-control">
+                            </div>
+                            <div class="element">
+                                <input type="checkbox" id="groundVisibility" class="form-check-input">
+                                <label for="groundVisibility" class="form-label">Ground visible</label>
+                            </div>
+                        </div>
+                        <div class="elements-block">
+                            <h5>Background settings</h5>
+                            <div class="element">
+                                <label for="backgroundColor" class="form-label">Background color</label>
+                                <input type="color" id="backgroundColor" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit button -->
+            <a class="btn btn-primary" href="#" id="upload">Upload</a>
+        </div>
+
+        <!-- Script importing -->
+        <script src="assets/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+        <script src="assets/jquery/3.6.4/jquery-3.6.4.min.js"></script>
+        <script src="assets/js/main.js"></script>
+        <script src="assets/js/inputValidation.js"></script>
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "./assets/three.js/build/three.module.js",
+                    "threeOBJLoader": "./assets/three.js/addons/loaders/OBJLoader.js",
+                    "threeOrbitControls": "./assets/three.js/addons/controls/OrbitControls.js",
+                    "modelPreview": "./assets/js/model-preview.js",
+                    "modelCompatibility": "./assets/WebGL/WebGL.js"
+                }
+            }
+        </script>
+        <script src="assets/js/new-model.js" type="module"></script>
+</body>
+
+</html>

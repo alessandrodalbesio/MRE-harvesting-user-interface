@@ -1,0 +1,231 @@
+/* Search bar style */
+#searchBar input {
+  width: 100%;
+  padding: 5px;
+  padding-left: 10px;
+  border-style: solid;
+  border-width: 2px;
+  border-color: #c3c3c3;
+  border-radius: 10px;
+}
+
+
+/* Body style */
+.content .card {
+  -webkit-box-shadow: 0px 0px 40px rgb(29 58 83 / 10%) !important;
+  box-shadow: 0px 0px 40px rgb(29 58 83 / 10%) !important;
+  border-radius: 1rem;
+  border-width: 0px;
+}
+
+.content .card img {
+  border-radius: 1rem 1rem 0 0;
+}
+
+.content .card span {
+  font-size: 20px;
+  font-weight: 700;
+  color: black;
+  text-decoration: none;
+  text-align: center;
+  margin: auto;
+  padding: 15px 0;
+}
+
+/* Models */
+.models .card {
+  height: 100% !important;
+  -webkit-box-shadow: 0px 0px 40px rgb(29 58 83 / 10%);
+  box-shadow: 0px 0px 40px rgb(29 58 83 / 10%);
+  border-radius: 15px;
+  border-width: 0px;
+  transition: transform 500ms;
+  position: relative;
+}
+
+.models .card .model-img {
+  border-radius: 15px 15px 0 0;
+}
+
+.models .card .active-model-texture-img {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  height: 75px;
+  width: 125px;
+  display: none;
+  border-radius: 5px;
+}
+
+.models > .row > div:hover > .card {
+  transform: scale(1.05, 1.05);
+  box-shadow: 0px 0px 30px rgb(29 58 83 / 30%);
+}
+
+.models .card span {
+  font-size: 20px;
+  font-weight: 700;
+  color: black;
+  text-decoration: none;
+  text-align: center;
+  margin: auto;
+  padding: 15px 0;
+}
+
+.models > .row > div.active .card {
+  border-width: 5px;
+  border-color: black;
+  box-shadow: 0px 0px 40px rgb(29 58 83 / 50%);
+  border-radius: 20px;
+}
+
+.models > .row > div.active .active-model-texture-img {
+  display: block;
+}
+
+/* Left banner */
+.banner {
+  position: fixed;
+  top: 0px;
+  right: 0;
+  height: 100%;
+  width: 400px;
+  max-width: 100%;
+  background-color: #fff;
+  padding: 1.5rem;
+  z-index: 999;
+  transform: translateX(100%);
+  transition: transform 650ms ease;
+}
+
+.banner.active {
+  transform: translateX(0%) !important;
+}
+
+.banner .container {
+  padding: 0px;
+  position: relative;
+}
+
+.close-banner {
+  position: absolute;
+  right: 5px;
+  top: 7px;
+  font-size: 25px;
+}
+
+.banner .header .title {
+  font-size: x-large;
+  font-weight: bold;
+}
+
+.banner .header .alert {
+  display: none;
+}
+
+.banner .body > .title {
+  font-size: medium;
+  font-weight: bold;
+}
+
+.banner-overlay {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  display: none;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+}
+
+.banner-overlay.active {
+  display: block;
+}
+
+/* Texture banner */
+.texture {
+  position: relative;
+  transition: transform 0.3s;
+}
+
+.texture:hover {
+  transform: scale(1.05, 1.05);
+}
+
+.texture > img {
+  width: 100%;
+  height: 100px;
+  border-radius: 8px;
+}
+
+.texture.active > img {
+  border-style: solid;
+  border-width: 4px;
+}
+
+.texture:hover > img {
+  box-shadow: 0px 0px 30px rgb(29 58 83 / 30%);
+}
+
+.texture > span {
+  display: none;
+}
+
+.texture.active > span {
+  display: block;
+  position: absolute;
+  font-size: 15px;
+  top: 6px;
+  right: 18px;
+}
+
+.texture > i {
+  display: none;
+  transition: transform 0.3s;
+}
+
+.texture > i:hover {
+  transform: scale(1.1, 1.1);
+}
+
+
+
+.texture > .selectDefaultTexture, .texture > .defaultTextureIcon, .texture > .deleteTextureIcon {
+  display: none;
+}
+.texture > .selectDefaultTexture:hover, .texture > .deleteTextureIcon:hover {
+  transform: scale(1.1, 1.1);
+}
+.texture:hover:not(.active, .defaultTexture) > .deleteTextureIcon {
+  display: block;
+  position: absolute;
+  top: 5px;
+  right: 18px;
+  font-size: 25px;
+  background-color: white;
+  padding: 7px;
+  border-radius: 5px;
+}
+.texture.active > img {
+  border-style: solid;
+  border-width: 4px;
+  border-color: red;
+}
+.texture:not(.active).defaultTexture > img {
+  border-style: solid;
+  border-width: 2px;
+  border-color: yellow;
+}
+.texture:hover:not(.defaultTexture) > .selectDefaultTexture {
+  display: block;
+  position: absolute;
+  top: 5px;
+  left: 18px;
+  font-size: 25px;
+  background-color: white;
+  padding: 7px;
+  border-radius: 5px;
+}

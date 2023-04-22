@@ -1,0 +1,26 @@
+/* Global style */
+body {
+  background-color: #f7f9fc;
+}
+
+/* Header style */
+body > .header h1 {
+  font-size: 35px;
+  font-weight: bold;
+}
+
+body > .header button {
+  font-weight: bold;
+  border-radius: 10px;
+}
+
+body > .header button > span {
+  margin-right: 5px;
+}
+
+/* Input validation */
+.input-feedback {
+  display: none;
+  color: red;
+  font-size: 15px;
+}
