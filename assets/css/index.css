@@ -229,3 +229,11 @@
   padding: 7px;
   border-radius: 5px;
 }
+
+input.title {
+  border: none;
+  background-color: transparent;
+  font-size: 1.5rem;
+  font-weight: bold;
+  width: 100%;
+}

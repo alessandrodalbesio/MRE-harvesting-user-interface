@@ -1,24 +1,19 @@
 import { modelPreviewManager, modelPreviewManagerTextureUpload } from "modelPreview";
 
-/* Page parameters definition */
-const MAX_MODEL_FILE_SIZE = 10000000; // 10MB
-const MAX_MODEL_NAME_LENGTH = 50; // 50 characters
-const MODEL_EXTENSIONS = ['obj']; // Supported model extensions
+/* Settings specific to the the upload (they are retrieved from the server) */
+let MAX_MODEL_FILE_SIZE = null;
+let MAX_MODEL_NAME_LENGTH = null;
+let MODEL_EXTENSIONS = null;
+let MAX_TEXTURE_FILE_SIZE = null;
+let IMG_TEXTURE_EXTENSIONS = null;
 
-const MAX_TEXTURE_FILE_SIZE = 10000000; // 10MB
-const IMG_TEXTURE_EXTENSIONS = ['jpg', 'jpeg', 'png']; // Supported image extensions
-
+/* Settings specific of the page */
 const MIN_PAGE_WIDTH = 992; // The maximum width of the page
 const CANVAS_WIDTH_RATION = 0.7; // The width of the canvas is 70% of the page width
 const CANVAS_HEIGHT_RATION = 0.5; // The height of the canvas is 60% of the page width
 
-const VERIFY_WITH_SERVER = false; // If true, the input will be verified with the server
-
-const UPLOAD_ENDPOINT = "http://127.0.0.1:5000/model";
 
 $(document).ready(function () {
-
-  /* ###### Page management code ###### */
 
   /* Definition of the modelPreview */
   const modelPreview = new modelPreviewManager('model-preview');
@@ -26,37 +21,50 @@ $(document).ready(function () {
   /* Resizing of the canvas based on the width of the container and verify that the device is not too small */
   (function () {
     const bodyWidth = $("#body").width();
-    if (window.innerWidth > MIN_PAGE_WIDTH) {
+    if (window.innerWidth > MIN_PAGE_WIDTH)
       modelPreview.resize(bodyWidth*CANVAS_WIDTH_RATION,bodyWidth*CANVAS_HEIGHT_RATION)
-    } else {
-      window.location.href = "http://"+DOMAIN+"/error-pages/device-is-small.html"
-    }
+    else
+      window.location.href = DEVICE_IS_SMALL;
   })();
 
+  /* Get the parameters needed from the server */
+  (function () {
+    $.ajax({
+      url: API_ENDPOINTS.settings.get.url,
+      type: API_ENDPOINTS.settings.get.method,
+      dataType: "json",
+      success: function (response) {
+        const settings = response.responseText;
+        MAX_MODEL_FILE_SIZE = settings.maxModelFileSize;
+        MAX_MODEL_NAME_LENGTH = settings.maxModelNameLength;
+        MODEL_EXTENSIONS = settings.modelExtensions;
+        MAX_TEXTURE_FILE_SIZE = settings.maxTextureFileSize;
+        IMG_TEXTURE_EXTENSIONS = settings.imgTextureExtensions;
+      },
+      error: function () {
+        window.location.href = SERVER_ERROR;
+      }
+    })
+  })();
 
   /* Manage input name input */
   $("#modelNameInput").change(function () {
     if(isInputValidType($(this), "The model name", "string") && isInputValidLength($(this), "The model name", MAX_MODEL_NAME_LENGTH)) {
-      if(VERIFY_WITH_SERVER) {
-        /* Verify that the model name is not taken */
-        $.ajax({
-          url: API_URL + "/models/name/" + $(this).val(),
-          type: "GET",
-          dataType: "json",
-          success: function (response) {
-            if (response.status === "success") {
-              addValidInputClass($("#modelNameInput"));
-            } else {
-              displayInputFeedback($("#modelNameInput"), "The model name is already taken");
-            }
-          },
-          error: function (response) {
-            alertBanner("An error occurred while verifying the model name", false);
+      $.ajax({
+        url: API_ENDPOINTS.model.exists.url + $(this).val(),
+        type: "GET",
+        dataType: "json",
+        success: function (response) {
+          if (response.responseText === "true") {
+            displayInputFeedback($(this), "The model name is already taken");
+          } else {
+            addValidInputClass($(this));
           }
-        });
-      } else {
-        addValidInputClass($(this));
-      }
+        },
+        error: function () {
+          alertBanner("An error occurred while verifying the model name", false);
+        }
+      });
     }
     showUploadButton();
   });
@@ -68,16 +76,16 @@ $(document).ready(function () {
     if(isFileNotUndefined($(this)) && isFileValidExtension($(this), "The model file", MODEL_EXTENSIONS) && isFileValidWeight($(this), "The model file", MAX_MODEL_FILE_SIZE)) {
       addValidInputClass($(this));
 
-      /* Manage preview */
+      /* Load the model and show the preview*/
       modelPreview.loadModelInScene(URL.createObjectURL($(this)[0].files[0]));
       $("#model-preview-row").removeClass('hide');
 
-      /* Manage texture selection */
+      /* Show the texture section */
       $("#texture-selection-row").removeClass('hide');
       $("#texture-selection-row .need-validation").removeClass('need-validation is-valid');
       $("#texture-selection-row div").not(".texture-input-method").addClass('need-validation col-12').prop('selectedIndex',0);
-      $(".texture-input-method").hide();
-      $("#texture-image, #texture-color").val("");
+      $(".texture-input-method").hide(); /* Hide all the texture inputs (they will be shown when an input method has been chosen) */
+      $("#texture-image, #texture-color").val(""); /* Reset the content */
     }
     else {
       $("#texture-selection-row, #model-preview-row").addClass('hide');
@@ -104,17 +112,16 @@ $(document).ready(function () {
       $("#texture-image").parent().addClass('need-validation').show();
       $("#texture-color").parent().removeClass('need-validation is-valid');
       $("#texture-color").val("");
-      modelPreview.applyTextureToModelFromColor(modelPreview.defaultObjectColor);
     } else if (selectedValue === "color") {
       $("#texture-color").parent().addClass('need-validation').show();
       $("#texture-color").val(modelPreview.defaultObjectColor);
-      addValidInputClass($("#texture-color"));
+      addValidInputClass($("#texture-color")); /* Every choosen color is valid */
       $("#texture-image").parent().removeClass('need-validation is-valid');
       $("#texture-image").val("");
     } else {
       $(this).parent().removeClass("col-6").addClass('col-12 need-validation');
-      modelPreview.applyTextureToModelFromColor(modelPreview.defaultObjectColor);
     }
+    modelPreview.applyTextureToModelFromColor(modelPreview.defaultObjectColor);
     showUploadButton();
   });
 
@@ -141,6 +148,7 @@ $(document).ready(function () {
 
   /* Manage upload button */
   function showUploadButton() {
+    /* Verify that all inputs that need validation are valid */
     if ($(".need-validation.is-valid").length === $(".need-validation").length) {
       $("#upload").show();
     } else {
@@ -149,23 +157,21 @@ $(document).ready(function () {
   }
 
   /* General purpose functions */
-  $(".return").click(() => {window.location.href = "index.html"});
+  $(".return").click(() => {window.location.href = HOME});
 
 
   /* Model preview settings */
   let defaultAmbientLight = modelPreview.defaultAmbientLight;
   $('#toggleAmbientLight').prop('checked', defaultAmbientLight);
   $('#toggleAmbientLight').change(function () {
-    if(!modelPreview.changeLightInScene()) {
+    if(!modelPreview.changeLightInScene())
       alertBanner('Something went wrong.');
-    }
     else {
       defaultAmbientLight = !defaultAmbientLight;
-      if(defaultAmbientLight) {
+      if(defaultAmbientLight)
         $("#toggleShadows").parent().hide();
-      } else {
+      else 
         $("#toggleShadows").parent().show();
-      }
     }
   });
 
@@ -224,13 +230,13 @@ $(document).ready(function () {
 
     /* Send the data to the server */
     $.ajax({
-      url: UPLOAD_ENDPOINT,
+      url: API_ENDPOINTS.model.create.url,
       type: "POST",
       data: formData,
       processData: false,
       contentType: false,
       cache: false,
-      success: function (response) {
+      success: function () {
         alertBanner("The model has been uploaded successfully", true);
         $("#modelNameInput, #modelFileInput, #texture-image, #texture-color").val("");
         $("#texture-selection-row, #model-preview-row").addClass('hide');
@@ -241,12 +247,10 @@ $(document).ready(function () {
       },
       error: function (response) {
         const jsonResponse = JSON.parse(response.responseText);
-        if (jsonResponse.errorID) {
+        if (jsonResponse.errorID)
           alertBanner(jsonResponse.message+"<br>Tracking error: "+jsonResponse.errorID, false);
-        }
-        else {
+        else
           alertBanner(jsonResponse.message, false);
-        }
       }
     });
   });

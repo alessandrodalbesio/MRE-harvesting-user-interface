@@ -1,5 +1,3 @@
-const DOMAIN = '127.0.0.1:5500/website';
-
 /* Alert management */
 $(document).ready(function() {
   var alertTemplate = `<strong class="alert-title"></strong><span class="alert-content"></span><i class="fa-solid fa-xmark close"></i>`;

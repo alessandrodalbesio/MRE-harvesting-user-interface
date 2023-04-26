@@ -1,47 +1,9 @@
-/*
-TO DO:
-- Preview doesn't show the texture when texture uploaded with image
-*/
 import { modelPreviewManager, modelPreviewManagerTextureUpload } from "modelPreview";
 
-
-/* Constants definition */
-const API_ENDPOINT_URL = "http://127.0.0.1:5000/";
-const API_ENDPOINTS = {
-  "model": {
-    "list": {
-      "url": API_ENDPOINT_URL+"models",
-      "method": "GET"
-    },
-    "delete": {
-      "url": API_ENDPOINT_URL+"model/",
-      "method": "DELETE"
-    },
-    "update": {
-      "url": API_ENDPOINT_URL+"model/",
-      "method": "PUT"
-    }
-  },
-  "texture": {
-    "delete": {
-      "url": API_ENDPOINT_URL+"texture/",
-      "method": "DELETE"
-    },
-    "create": {
-      "url": API_ENDPOINT_URL+"texture/",
-      "method": "POST"
-    },
-    "setDefault": {
-      "url": API_ENDPOINT_URL+"texture/default/",
-      "method": "PUT"
-    }
-  }
-}
-const URL_MODEL_CREATION = "new-model.html";
-const MODELS_FOLDER = "models/";
-const MODEL_FILE_NAME = 'model'
-const MODEL_TEXTURE_PREVIEW_NAME = 'preview'
-const MODEL_TEXTURE_PREVIEW_FORMAT = 'jpg'
+const MODELS_FOLDER = "models/"; /* This folder is not directly accessible since it's a shared folder with the server and should be accessed through a proxy server */
+let MODEL_FILE_NAME = null
+let MODEL_TEXTURE_PREVIEW_NAME = null
+let MODEL_TEXTURE_PREVIEW_FORMAT = null
 
 /* Data variables */
 let models = []; /* List of all the models */
@@ -378,6 +340,24 @@ $(document).ready(function () {
     });
   })();
 
+  /* Load settings */
+  (function () {
+    $.ajax({
+      url: API_ENDPOINTS.settings.get.url,
+      type: API_ENDPOINTS.settings.get.method,
+      success: function (data) {
+        settings = JSON.parse(data);
+        MODEL_FILE_NAME = settings.modelFileName;
+        MODEL_TEXTURE_PREVIEW_NAME = settings.modelTexturePreviewName;
+        MODEL_TEXTURE_PREVIEW_FORMAT = settings.modelTexturePreviewFormat;
+      },
+      error: function () {
+        /* Redirect to error page */
+        window.location.href = URL_ERROR;
+      }
+    });
+  })();
+
   /* Add event listener */
   $("#modelNameBanner").on("change", function() {
     let newName = $(this).val();
@@ -439,10 +419,6 @@ let getSelectedTextureID = function() {
   return selectedElement.textureID;
 }
 
-let getSelectedModel = function() {
-  return models.find((item) => item.IDModel === selectedElement.modelID);
-}
-
 let isSelected = function(modelID, IDTexture) {
   return selectedElement.modelID === modelID && selectedElement.IDTexture === IDTexture;
 }
@@ -460,10 +436,39 @@ let selectElement = function(modelID, IDTexture) {
   selectedElement.IDTexture = IDTexture;
   let texturePreviewURL = MODELS_FOLDER + modelID + "/" + texture.IDTexture + "." + texture.extension;
   $(`.models > .row > div[data-model_id="${modelID}"] > .card > .active-model-texture-img`).attr("src", texturePreviewURL);
+
+  /* Send selected model to the server */
+  sendSelectedModel();
 }
 
 let unsetSelected = function() {
   $(".models > .row > div").removeClass("active");
   selectedElement.modelID = null;
   selectedElement.IDTexture = null;
+
+  /* Send unset selected model command to the server */
+  sendUnsetSelectedModel();
+}
+
+/* Socket management */
+let socket = io.connect(SOCKET_ENDPOINT);
+
+socket.on("connect", function () {
+  console.log("Connected to the server");
+});
+
+socket.on("disconnect", function () {
+  console.log("Disconnected from the server");
+});
+
+socket.on("selectModel", function (data) {
+  selectElement(data.modelID, data.textureID);
+});
+
+let sendSelectedModel = function() {
+  socket.emit("selectModel", { modelID: getSelectedModelID(), textureID: getSelectedTextureID() });
+}
+
+let sendUnsetSelectedModel = function() {
+  socket.emit("unsetSelectedModel");
 }
