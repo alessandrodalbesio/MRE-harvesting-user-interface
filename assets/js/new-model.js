@@ -34,15 +34,14 @@ $(document).ready(function () {
       type: API_ENDPOINTS.settings.get.method,
       dataType: "json",
       success: function (response) {
-        const settings = response.responseText;
-        MAX_MODEL_FILE_SIZE = settings.maxModelFileSize;
-        MAX_MODEL_NAME_LENGTH = settings.maxModelNameLength;
-        MODEL_EXTENSIONS = settings.modelExtensions;
-        MAX_TEXTURE_FILE_SIZE = settings.maxTextureFileSize;
-        IMG_TEXTURE_EXTENSIONS = settings.imgTextureExtensions;
+        MAX_MODEL_FILE_SIZE = response.maxModelFileSize;
+        MAX_MODEL_NAME_LENGTH = response.maxModelNameLength;
+        MODEL_EXTENSIONS = response.validModelExtensions;
+        MAX_TEXTURE_FILE_SIZE = response.maxTextureFileSize;
+        IMG_TEXTURE_EXTENSIONS = response.validTextureExtensions;
       },
       error: function () {
-        window.location.href = SERVER_ERROR;
+        window.location.href = ERROR_SERVER;
       }
     })
   })();
@@ -55,10 +54,10 @@ $(document).ready(function () {
         type: "GET",
         dataType: "json",
         success: function (response) {
-          if (response.responseText === "true") {
-            displayInputFeedback($(this), "The model name is already taken");
+          if (response.modelNameAlreadyUsed) {
+            displayInputFeedback($("#modelNameInput"), "The model name is already taken");
           } else {
-            addValidInputClass($(this));
+            addValidInputClass($("#modelNameInput"));
           }
         },
         error: function () {
@@ -231,7 +230,7 @@ $(document).ready(function () {
     /* Send the data to the server */
     $.ajax({
       url: API_ENDPOINTS.model.create.url,
-      type: "POST",
+      type: API_ENDPOINTS.model.create.method,
       data: formData,
       processData: false,
       contentType: false,

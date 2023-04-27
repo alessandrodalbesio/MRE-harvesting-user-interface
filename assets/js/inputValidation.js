@@ -3,6 +3,7 @@ const VALID_INPUT_CLASS = 'is-valid';
 
 /* Display the input feedback */
 function displayInputFeedback(inputID, text) {
+    console.log($(inputID));
     let feedbackDiv = $(inputID).parent().children(".input-feedback");
     removeValidInputClass(inputID);
     feedbackDiv.text(text);

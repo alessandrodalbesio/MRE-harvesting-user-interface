@@ -1,9 +1,9 @@
 /** MODIFY BELOW BEFORE DEPLOYMENT (don't change the names!!) **/
 
 /* Definition of the domains of the application */
-const SELF_DOMAIN = null;
-const API_DOMAIN = null;
-const WEBSOCKET_DOMAIN = null;
+const SELF_DOMAIN = "http://virtualenv.epfl.ch/";
+const API_DOMAIN = "http://virtualenv.epfl.ch/api";
+const WEBSOCKET_DOMAIN = "";
 
 if (SELF_DOMAIN === null || API_DOMAIN === null || WEBSOCKET_DOMAIN === null) {
     alert("Please configure the domains in assets/js/settings.js before deployment.");
@@ -35,7 +35,7 @@ const API_ENDPOINTS = {
         "method": "DELETE"
       },
       "create": {
-        "url": API_DOMAIN+"/model/",
+        "url": API_DOMAIN+"/model",
         "method": "POST"
       },
       "update": {
@@ -68,4 +68,4 @@ const DEVICE_IS_SMALL = SELF_DOMAIN + 'error-pages/device-is-small.html';
 const MODEL_NOT_FOUND = SELF_DOMAIN + 'error-pages/model-not-found.html';
 const NOT_COMPATIBLE = SELF_DOMAIN + 'error-pages/not-compatible.html';
 const NO_JS = SELF_DOMAIN + 'error-pages/no-js.html';
-const ERROR_SERVER = SELF_DOMAIN + 'error-pages/server-error.html';
+const ERROR_SERVER = SELF_DOMAIN + 'error-pages/500.html';

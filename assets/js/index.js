@@ -1,6 +1,6 @@
 import { modelPreviewManager, modelPreviewManagerTextureUpload } from "modelPreview";
 
-const MODELS_FOLDER = "models/"; /* This folder is not directly accessible since it's a shared folder with the server and should be accessed through a proxy server */
+const MODELS_FOLDER = "models/";
 let MODEL_FILE_NAME = null
 let MODEL_TEXTURE_PREVIEW_NAME = null
 let MODEL_TEXTURE_PREVIEW_FORMAT = null
@@ -322,37 +322,33 @@ $("#searchBar input").keyup((e) => {
 
 /* JQUERY management */
 $(document).ready(function () {
-  /* Load models */
-  (function () {
-    $.ajax({
-      url: API_ENDPOINTS.model.list.url,
-      type: API_ENDPOINTS.model.list.method,
-      success: function (data) {
-        models = JSON.parse(data);
-        if(models.length == 0)
-          window.location.href = URL_MODEL_CREATION;
-        models.forEach((element) => { addModelToDom(element) });
-        modelPreview = new modelPreviewManagerTextureUpload("imagePreviewForTextureCreation");
-      },
-      error: function () {
-        alertBanner('Something went wrong during the loading of the models. Please try again later.', false, 'main-alert', true);
-      }
-    });
-  })();
-
   /* Load settings */
   (function () {
     $.ajax({
       url: API_ENDPOINTS.settings.get.url,
       type: API_ENDPOINTS.settings.get.method,
       success: function (data) {
-        settings = JSON.parse(data);
-        MODEL_FILE_NAME = settings.modelFileName;
-        MODEL_TEXTURE_PREVIEW_NAME = settings.modelTexturePreviewName;
-        MODEL_TEXTURE_PREVIEW_FORMAT = settings.modelTexturePreviewFormat;
+        data = JSON.parse(data);
+        MODEL_FILE_NAME = data.modelFileName;
+        MODEL_TEXTURE_PREVIEW_NAME = data.modelTexturePreviewName;
+        MODEL_TEXTURE_PREVIEW_FORMAT = data.modelTexturePreviewFormat;
+
+        $.ajax({
+          url: API_ENDPOINTS.model.list.url,
+          type: API_ENDPOINTS.model.list.method,
+          success: function (data) {
+            models = JSON.parse(data);
+            if(models.length == 0)
+              window.location.href = NEW_MODEL;
+            models.forEach((element) => { addModelToDom(element) });
+            modelPreview = new modelPreviewManagerTextureUpload("imagePreviewForTextureCreation");
+          },
+          error: function () {
+            window.location.href = ERROR_SERVER;
+          }
+        });
       },
       error: function () {
-        /* Redirect to error page */
         window.location.href = URL_ERROR;
       }
     });
@@ -402,7 +398,7 @@ $(document).ready(function () {
 
 
   /* Redirect the user to the page for the model upload */
-  $("#newModelRedirectButton").click(() => { window.location.href = URL_MODEL_CREATION });
+  $("#newModelRedirectButton").click(() => { window.location.href = NEW_MODEL });
 });
 
 /* Selected active texture and model management */
@@ -451,7 +447,7 @@ let unsetSelected = function() {
 }
 
 /* Socket management */
-let socket = io.connect(SOCKET_ENDPOINT);
+/*let socket = io.connect(SOCKET_ENDPOINT);
 
 socket.on("connect", function () {
   console.log("Connected to the server");
@@ -464,11 +460,11 @@ socket.on("disconnect", function () {
 socket.on("selectModel", function (data) {
   selectElement(data.modelID, data.textureID);
 });
-
+*/
 let sendSelectedModel = function() {
-  socket.emit("selectModel", { modelID: getSelectedModelID(), textureID: getSelectedTextureID() });
+  //socket.emit("selectModel", { modelID: getSelectedModelID(), textureID: getSelectedTextureID() });
 }
 
 let sendUnsetSelectedModel = function() {
-  socket.emit("unsetSelectedModel");
+  //socket.emit("unsetSelectedModel");
 }
