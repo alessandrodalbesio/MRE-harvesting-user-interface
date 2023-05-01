@@ -46,6 +46,21 @@ $(document).ready(function () {
     })
   })();
 
+
+  let verifyNumberOfModels = function () {
+    $.ajax({
+      url: API_ENDPOINTS.model.list.url,
+      type: API_ENDPOINTS.model.list.method,
+      dataType: "json",
+      success: function (response) {
+        if (response.length == 0)
+          $(".header button").addClass("d-none");
+      }
+    })
+  }
+  verifyNumberOfModels();
+
+
   /* Manage input name input */
   $("#modelNameInput").change(function () {
     if(isInputValidType($(this), "The model name", "string") && isInputValidLength($(this), "The model name", MAX_MODEL_NAME_LENGTH)) {
@@ -243,6 +258,9 @@ $(document).ready(function () {
         $("#texture-selection-row .need-validation").removeClass('need-validation is-valid');
         $("#texture-selection-row div").not(".texture-input-method").addClass('need-validation col-12').prop('selectedIndex',0);
         $(".texture-input-method").hide();
+        $("#selectTextureInputMethod").val($("#selectTextureInputMethod option:first").val());
+        verifyNumberOfModels();
+        notifyNewModel();
       },
       error: function (response) {
         const jsonResponse = JSON.parse(response.responseText);
@@ -253,5 +271,17 @@ $(document).ready(function () {
       }
     });
   });
-
 })
+
+
+/* Socket implementation */
+const socket = io(SELF_DOMAIN, {path: WEBSOCKET_PATH});
+socket.connect();
+
+let notifyNewModel = function(IDModel) {
+  socket.emit('new-model', {IDModel: IDModel});
+}
+
+socket.on('new-model', function() {
+  verifyNumberOfModels();
+});

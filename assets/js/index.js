@@ -11,288 +11,8 @@ let modelPreview = null; /* Object that will manage the creation of the models p
 let modelLoaded = false; /* If the model is loaded in the 3D viewer */
 let openModelID = null; /* The ID of the model that is currently opened in the left banner */
 let openModelSelectedModel = null; /* The model that is currently opened in the left banner */
-
-
-/* Banner management */
-function openModelBanner(modelID) {
-  let selectedModel = models.find((item) => item.IDModel === modelID);  
-  openModelID = modelID;
-  openModelSelectedModel = selectedModel;
-
-  /* Create banner content */
-  $("#modelBanner .body .texture").remove();
-  openModelSelectedModel.textures.forEach((texture) => { addTextureDOM(texture) });
-  $("#modelBanner .header .title").val(openModelSelectedModel.modelName);
-
-  /* Show the banner */
-  $("#modelBanner").addClass("active");
-  $("#bannerOverlay").addClass("active");
-  $("#bannerOverlay, .close-banner").on("click", () => { closeModelbanner() });
-}
-
-function closeModelbanner() {
-  openModelID = null;
-  openModelSelectedModel = null;
-  modelLoaded = false;
-  $("#modelBanner").removeClass("active");
-  $("#bannerOverlay").removeClass("active");
-  $("#bannerOverlay, .close-banner").off("click");
-}
-
-/* Model management */
-let addModelToDom = function (model) {
-  let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
-  let imgSelectedTexture = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "."+model.defaultTexture.textureExtension;
-  $(".models > .row").append(
-    `<div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4 model" data-model_id="${model.IDModel}" data-model_name="${model.modelName}">
-        <div class="card">
-          <img src="${imgPreview}" class="model-img" alt="Image Model ${model.modelName}">
-          <img src="${imgSelectedTexture}" class="active-model-texture-img" alt="Active Texture Image"> 
-          <span>${model.modelName}</span>
-        </div>
-      </div>`
-    );
-    $(".models > .row > div[data-model_id='" + model.IDModel + "']").on("click", () => { openModelBanner(model.IDModel) });
-};
-
-let removeModelFromDom = (modelID) => { 
-  $(`.models > .row > div[data-model_id="${modelID}"]`).remove()
-};
-
-let deleteModel = function (params) {
-  $.ajax({
-    url: API_ENDPOINTS.model.delete.url + openModelID,
-    type: API_ENDPOINTS.model.delete.method,
-    success: function (data) {
-      removeModelFromDom(openModelID);
-      closeModelbanner();
-      alertBanner('Model deleted successfully', true, 'main-alert');
-    },
-    error: function (error) {
-      let textError = JSON.parse(error.responseText);
-      alertBanner("<b>Error deleting the model</b>: " + textError.message, false, 'banner-alert');
-    }
-  });
-};
-
-let updateModelname = function(modelID, modelName) {
-  /* Verify that the modelName doesn't exists */
-  let model = models.find((item) => item.modelName === modelName);
-  if (model) {
-    alertBanner("The model name already exists", false, 'banner-alert');
-    return;
-  }
-  let formData = new FormData();
-  formData.append("modelName", modelName);
-  $.ajax({
-    url: API_ENDPOINTS.model.update.url + modelID,
-    type: API_ENDPOINTS.model.update.method,
-    data: formData,
-    processData: false,
-    contentType: false,
-    success: function (data) {
-      $(`.models > .row > div[data-model_id="${modelID}"]`).attr("data-model_name", modelName);
-      $(`.models > .row > div[data-model_id="${modelID}"] .card span`).text(modelName)
-    },
-    error: function (error) {
-      let textError = JSON.parse(error.responseText);
-      alertBanner("Error updating the model name: " + textError.message, false, 'banner-alert');
-    }
-  });
-}
-
-/* Texture */
-let addTextureDOM = function (texture) {
-  let defaultTexture = models.find(model => model.IDModel == openModelID).defaultTexture.textureID;
-  let imgUrl = MODELS_FOLDER + openModelID + "/" + texture.IDTexture + "." + texture.extension;
-  $(".banner .body > .title").after(`
-    <div class="col-6 mb-3 texture ${defaultTexture == texture.IDTexture ? 'defaultTexture' : ''} ${isSelected(openModelID, texture.IDTexture) ? 'active' : ''}" data-id_texture="${texture.IDTexture}">
-      <span class="badge bg-secondary">Active</span>
-      <i class="fa-solid fa-trash-can deleteTextureIcon"></i>
-      <i class="fa-regular fa-star selectDefaultTexture"></i>
-      <img src="${imgUrl}">
-    </div>
-  `)
-  $("#modelBanner .texture[data-id_texture='" + texture.IDTexture + "'] .deleteTextureIcon").click(function () {
-    let textureID = $(this).parent().data("id_texture");
-    requestConfirm(
-      `Are you sure you want to delete the texture?`,
-      deleteTexture,
-      textureID
-    );
-  });
-  
-  $("#modelBanner .texture[data-id_texture='" + texture.IDTexture + "'] .selectDefaultTexture").click(function () {
-    let textureID = $(this).parent().data("id_texture");
-    changeDefaultTexture(textureID);
-  });
-
-  $("#modelBanner .texture[data-id_texture='" + texture.IDTexture + "'] img").click(function () {
-    /* For each model into the scene modify the model preview and set the model default texture */
-    $(".model").each(function () {
-      let modelID = $(this).data("model_id");
-      let model = models.find((item) => item.IDModel === modelID);
-      let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
-      $(this).find("img").attr("src", imgPreview);
-    });
-    if ($(this).parent().hasClass("active")) {
-      $(this).parent().removeClass("active");
-      unsetSelected();
-    } else {
-      $("#modelBanner .texture").removeClass("active");
-      $(this).parent().addClass("active");
-      selectElement(openModelID, texture.IDTexture);
-    }
-  });
-};
-
-let removeTextureFromDom = function (textureID) {
-  $(`.banner .body .texture[data-id_texture="${textureID}"]`).remove();
-}
-
-let deleteTexture = function(textureID) {
-  textureID = textureID[0];
-  if (models.find((item) => item.IDModel === openModelID).defaultTexture.textureID === textureID) {
-    alertBanner("Error deleting the texture: The default texture cannot be deleted", false, 'banner-alert');
-    return;
-  }
-  if (isSelected(openModelID, textureID)) {
-    alertBanner("Error deleting the texture: The selected texture cannot be deleted", false, 'banner-alert');
-    return;
-  }
-  $.ajax({
-    url: API_ENDPOINTS.texture.delete.url + textureID,
-    type: API_ENDPOINTS.texture.delete.method,
-    success: function (data) {
-      removeTextureFromDom(textureID);
-      for(let i = 0; i < models.length; i++) {
-        if(models[i].IDModel === openModelID) {
-          models[i].textures = models[i].textures.filter((texture) => texture.IDTexture !== textureID);
-          break;
-        }
-      }
-      alertBanner('Texture deleted successfully', true, 'banner-alert');
-    },
-    error: function (error) {
-      console.log(error);
-      let textError = JSON.parse(error.responseText);
-      alertBanner("<b>Error deleting the texture</b>: " + textError.message, false, 'banner-alert');
-    }
-  });
-}
-
-let textureLoadingCallback = function(callback, param) {
-  modelLoaded = true;
-  callback(param);
-}
-
-let createTextureFromColor = function(color) {
-  if(!modelLoaded) {
-    let selectedModel = models.find((item) => item.IDModel === openModelID);
-    let selectedModelUrl = MODELS_FOLDER + openModelID + "/"+MODEL_FILE_NAME+"."+selectedModel.modelExtension;
-    modelPreview.setSceneParameters(selectedModel.cameraInformations);
-    modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, createTextureFromColor, color);
-  }
-  else {
-    modelPreview.applyTextureToModelFromColor(color);
-    let formData = new FormData();
-    formData.append("modelID", openModelID);
-    formData.append("textureColor", color);
-    formData.append("modelWithTexturePreview", modelPreview.captureScreenshot().img);
-    $.ajax({
-      url: API_ENDPOINTS.texture.create.url + "color",
-      type: "POST",
-      data: formData,
-      processData: false,
-      contentType: false,
-      success: function (data) {
-        let parsedData = JSON.parse(data);
-        for(let i = 0; i < models.length; i++) {
-          if(models[i].IDModel == openModelID) {
-            models[i].textures.push(parsedData);
-            break;
-          }
-        }
-        addTextureDOM(parsedData);
-        alertBanner('Texture created successfully', true, 'banner-alert');
-      },
-      error: function (error) {
-        let textError = JSON.parse(error.responseText);
-        alertBanner("<b>Error creating the texture</b>: " + textError.message, false, 'banner-alert');
-      }
-    });
-  }
-}
-
-let createTextureFromImage = function(image) {
-  if(!modelLoaded) {
-    let selectedModel = models.find((item) => item.IDModel === openModelID);
-    let selectedModelUrl = MODELS_FOLDER + openModelID + "/"+MODEL_FILE_NAME+"."+selectedModel.modelExtension;
-    modelPreview.setSceneParameters(selectedModel.cameraInformations);
-    modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, createTextureFromImage, image);
-  }
-  else {
-    modelPreview.applyTextureToModelFromImage(URL.createObjectURL(image));
-    let formData = new FormData();
-    formData.append("modelID", openModelID);
-    formData.append("textureImage", image);
-    formData.append("modelWithTexturePreview", modelPreview.captureScreenshot().img);
-    $.ajax({
-      url: API_ENDPOINTS.texture.create.url + "image",
-      type: "POST",
-      data: formData,
-      processData: false,
-      contentType: false,
-      success: function (data) {
-        let parsedData = JSON.parse(data);
-        for(let i = 0; i < models.length; i++) {
-          if(models[i].IDModel == openModelID) {
-            models[i].textures.push(parsedData);
-            break;
-          }
-        }
-        addTextureDOM(parsedData);
-        alertBanner('Texture created successfully', true, 'banner-alert');
-      },
-      error: function (error) {
-        let textError = JSON.parse(error.responseText);
-        alertBanner("<b>Error creating the texture</b>: " + textError.message, false, 'banner-alert');
-      }
-    });
-  }
-}
-
-let changeDefaultTexture = function(textureID) {
-  let modelID = openModelID;
-  let formData = new FormData();
-  formData.append("textureID", textureID);
-  $.ajax({
-    url: API_ENDPOINTS.texture.setDefault.url + modelID,
-    type: API_ENDPOINTS.texture.setDefault.method,
-    data: formData,
-    processData: false,
-    contentType: false,
-    success: function (data) {
-      $("#modelBanner .texture").removeClass("defaultTexture");
-      $("#modelBanner .texture[data-id_texture='" + textureID + "']").addClass("defaultTexture");
-      for(let i = 0; i < models.length; i++) {
-        if(models[i].IDModel == modelID) {
-          models[i].defaultTexture.textureID = textureID;
-          models[i].defaultTexture.textureExtension = models[i].textures.find((item) => item.IDTexture === textureID).textureExtension;
-          break;
-        }
-      }
-      if (getSelectedModelID() != modelID) {
-        let imgSrc = MODELS_FOLDER + modelID + "/" + textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
-        $(".model[data-model_id='" + modelID + "'] .model-img").attr("src", imgSrc);
-      }
-    },
-    error: function (error) {
-      let textError = JSON.parse(error.responseText);
-      alertBanner("<b>Error changing the default texture</b>: " + textError.message, false, 'banner-alert');
-    }
-  });
-}
+let lockedModels = []; /* List of the models that are locked by other users */
+let selectedElement = {  modelID: null,  IDTexture: null };
 
 /* Confirm banner */
 function requestConfirm(message, callback, ...args) {
@@ -362,6 +82,7 @@ $(document).ready(function () {
 
   /* Manage model delete */
   $("#deleteModelButton").click(function() {
+
     requestConfirm(
       `Are you sure you want to delete the model?`,
       deleteModel,
@@ -401,10 +122,543 @@ $(document).ready(function () {
   $("#newModelRedirectButton").click(() => { window.location.href = NEW_MODEL });
 });
 
-/* Selected active texture and model management */
-let selectedElement = { 
-  modelID: null, 
-  textureID: null 
+
+
+/* Socket connection */
+const socket = io(SELF_DOMAIN, {path: WEBSOCKET_PATH});
+socket.connect();
+
+/* Models management */
+socket.on('new-model', function(data) {
+  let IDModel = data.IDModel;
+  $.ajax({
+    url: API_ENDPOINTS.model.get.url + IDModel,
+    type: API_ENDPOINTS.model.get.method,
+    success: function (data) {
+      models.push(JSON.parse(data));
+      addModelToDom(JSON.parse(data));
+    },
+    error: function(err) {  
+      window.location.href = ERROR_SERVER;
+    }
+  });
+})
+let addModelToDom = function (model) {
+  let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
+  let imgSelectedTexture = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "."+model.defaultTexture.textureExtension;
+  $(".models > .row").append(
+    `<div class="col-12 col-sm-6 col-lg-4 col-xl-3 mb-4 model" data-model_id="${model.IDModel}" data-model_name="${model.modelName}">
+        <div class="card">
+          <img src="${imgPreview}" class="model-img" alt="Image Model ${model.modelName}">
+          <img src="${imgSelectedTexture}" class="active-model-texture-img" alt="Active Texture Image"> 
+          <span>${model.modelName}</span>
+        </div>
+      </div>`
+    );
+    $(".models > .row > div[data-model_id='" + model.IDModel + "']").on("click", () => { openModelBanner(model.IDModel) });
+};
+
+/* Model update */
+socket.on('update-model', function(data) {
+  let IDModel = data.IDModel;
+  $.ajax({
+    url: API_ENDPOINTS.model.get.url + IDModel,
+    type: API_ENDPOINTS.model.get.method,
+    success: function (data) {
+      data = JSON.parse(data);
+      
+      /* Update model in models */
+      let index = models.findIndex((item) => item.IDModel === IDModel);
+      models[index] = data;
+
+      /* Update model in DOM */
+      updateModelnameDOM(IDModel, data.modelName);
+      
+      /* If the selected model is the updated one, update the banner */
+      if (openModelID == IDModel)
+        $("#modelNameBanner").val(data.modelName);
+    }, error: function(err) {
+      window.location.href = ERROR_SERVER;
+    }
+  });
+})
+
+let notifyModelUpdate = function(IDModel) {
+  socket.emit('update-model', { IDModel: IDModel });
+}
+
+let updateModelnameDOM = function (modelID, modelName) {
+  /* Update the model of the model in the DOM */
+  $(`.models > .row > div[data-model_id="${modelID}"]`).attr("data-model_name", modelName);
+  $(`.models > .row > div[data-model_id="${modelID}"] .card span`).text(modelName)
+};
+
+let updateModelname = function(modelID, modelName) {
+  /* Verify that the modelName doesn't exists */
+  let model = models.find((item) => item.modelName === modelName);
+  if (model) {
+    alertBanner("The model name already exists", false, 'banner-alert');
+    return;
+  }
+
+  /* Update the model name */
+  let formData = new FormData();
+  formData.append("modelName", modelName);
+  $.ajax({
+    url: API_ENDPOINTS.model.update.url + modelID,
+    type: API_ENDPOINTS.model.update.method,
+    
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function (data) {
+      let index = models.findIndex((item) => item.IDModel === modelID);
+      models[index].modelName = modelName;
+      updateModelnameDOM(modelID, modelName);
+      alertBanner('Model name updated successfully', true, 'main-alert');
+      notifyModelUpdate(modelID);
+    },
+    error: function (error) {
+      let textError = JSON.parse(error.responseText);
+      alertBanner("Error updating the model name: " + textError.message, false, 'banner-alert');
+    }
+  });
+}
+
+
+/* Model delete */
+socket.on('delete-model', function(data) {
+  let IDModel = data.IDModel;
+
+  /* Remove model from models */
+  let index = models.findIndex((item) => item.IDModel === IDModel);
+  models.splice(index, 1);
+
+  /* Remove model from DOM */
+  removeModelFromDom(IDModel);
+})
+
+let notifyModelDeletion = function(IDModel) {
+  socket.emit('delete-model', { IDModel: IDModel });
+}
+
+let removeModelFromDom = (modelID) => { 
+  $(`.models > .row > div[data-model_id="${modelID}"]`).remove()
+
+  /* Check if there is at least one model otherwise redirect to the new model page */
+  if ($(".models > .row > div[data-model_id]").length === 0)
+    window.location.href = NEW_MODEL;
+};
+
+let deleteModel = function (params) {
+  let modelID = params[0];
+  if (isModelLocked(modelID)) {
+    alertBanner("You can't delete this model since another user is working on it.", false, 'banner-alert');
+    return;
+  }
+  $.ajax({
+    url: API_ENDPOINTS.model.delete.url + modelID,
+    type: API_ENDPOINTS.model.delete.method,
+    
+    success: function (data) {
+      /* Remove model from models array */
+      models = models.filter((item) => item.IDModel !== modelID);
+
+      /* Remove model from DOM */
+      removeModelFromDom(modelID);
+      closeModelbanner();
+      alertBanner('Model deleted successfully', true, 'main-alert');
+
+      /* Notify the other users */
+      notifyModelDeletion(modelID);
+    },
+    error: function (error) {
+      let textError = JSON.parse(error.responseText);
+      alertBanner("Error deleting the model: " + textError.message, false, 'banner-alert');
+    }
+  });
+};
+
+/* Texture creation */
+socket.on('new-texture', function(data) {
+  let IDModel = data.IDModel;
+
+  /* Get texture information */
+  $.ajax({
+    url: API_ENDPOINTS.model.get.url + data.IDModel,
+    type: API_ENDPOINTS.model.get.method,
+    success: function (data) {
+      data = JSON.parse(data);
+
+      /* Update model in models */
+      let index = models.findIndex((item) => item.IDModel === IDModel);
+      models[index] = data;
+      
+      /* If the banner is open, update the banner */
+      if (openModelID == IDModel)
+        refreshModelBannerContent();
+    }, error: function(err) {
+      window.location.href = ERROR_SERVER;
+    }
+  });
+})
+let notifyTextureAddition = function(IDModel) {
+  socket.emit('new-texture', { IDModel: IDModel });
+}
+
+let updateDefaultDOMModelPreview = function() {
+  $(".model").each(function () {
+    let modelID = $(this).data("model_id");
+    let model = models.find((item) => item.IDModel === modelID);
+    let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
+    $(this).find("img").attr("src", imgPreview);
+  });
+}
+
+let addTextureDOM = function (texture) {
+  let defaultTexture = models.find(model => model.IDModel == openModelID).defaultTexture.textureID;
+  let imgUrl = MODELS_FOLDER + openModelID + "/" + texture.IDTexture + "." + texture.extension;
+  $(".banner .body > .title").after(`
+    <div class="col-6 mb-3 texture ${defaultTexture == texture.IDTexture ? 'defaultTexture' : ''} ${isSelected(openModelID, texture.IDTexture) ? 'active' : ''}" data-id_texture="${texture.IDTexture}">
+      <span class="badge bg-secondary">Active</span>
+      <i class="fa-solid fa-trash-can deleteTextureIcon"></i>
+      <i class="fa-regular fa-star selectDefaultTexture"></i>
+      <img src="${imgUrl}">
+    </div>
+  `)
+
+  /* Add the delete event listener to the new texture */
+  $("#modelBanner .texture[data-id_texture='" + texture.IDTexture + "'] .deleteTextureIcon").click(function () {
+    let textureID = $(this).parent().data("id_texture");
+    requestConfirm(
+      `Are you sure you want to delete the texture?`,
+      deleteTexture,
+      textureID
+    );
+  });
+  
+  /* Add the select default texture event listener to the new texture */
+  $("#modelBanner .texture[data-id_texture='" + texture.IDTexture + "'] .selectDefaultTexture").click(function () {
+    let textureID = $(this).parent().data("id_texture");
+    changeDefaultTexture(textureID);
+  });
+
+  /* Add the select texture event listener to the new texture */
+  $("#modelBanner .texture[data-id_texture='" + texture.IDTexture + "'] img").click(function () {
+    if ($(this).parent().hasClass("active"))
+      unsetSelected();
+    else 
+      selectElement(openModelID, texture.IDTexture);
+  });
+};
+
+let textureLoadingCallback = function(callback, param) {
+  /* Needed to be sure that the model preview has been loaded */
+  modelLoaded = true;
+  callback(param);
+}
+
+let createTextureFromColor = function(color) {
+  if(!modelLoaded) {
+    let selectedModel = models.find((item) => item.IDModel === openModelID);
+    let selectedModelUrl = MODELS_FOLDER + openModelID + "/"+MODEL_FILE_NAME+"."+selectedModel.modelExtension;
+    modelPreview.setSceneParameters(selectedModel.cameraInformations); // Set the camera informations
+    modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, createTextureFromColor, color);
+    /*  What this function does is basically call back this function only after the model has been loaded (otherwise we cannot apply the texture for the preview). */
+  }
+  else {
+    /* Apply the texture to the model preview */
+    modelPreview.applyTextureToModelFromColor(color);
+
+    /* Create the texture */
+    let formData = new FormData();
+    formData.append("modelID", openModelID);
+    formData.append("textureColor", color);
+    formData.append("modelWithTexturePreview", modelPreview.captureScreenshot().img);
+    $.ajax({
+      url: API_ENDPOINTS.texture.create.url + "color",
+      type: API_ENDPOINTS.texture.create.method,
+      
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (data) {
+        let parsedData = JSON.parse(data);
+        for(let i = 0; i < models.length; i++) {
+          if(models[i].IDModel == openModelID) {
+            models[i].textures.push(parsedData);
+            break;
+          }
+        }
+        addTextureDOM(parsedData);
+        notifyTextureAddition(openModelID);
+        alertBanner('Texture created successfully', true, 'banner-alert');
+      },
+      error: function (error) {
+        let textError = JSON.parse(error.responseText);
+        alertBanner("Error creating the texture: " + textError.message, false, 'banner-alert');
+      }
+    });
+  }
+}
+
+let createTextureFromImage = function(image) {
+  /* This function is basically the same as createTextureFromColor */
+  if(!modelLoaded) {
+    let selectedModel = models.find((item) => item.IDModel === openModelID);
+    let selectedModelUrl = MODELS_FOLDER + openModelID + "/"+MODEL_FILE_NAME+"."+selectedModel.modelExtension;
+    modelPreview.setSceneParameters(selectedModel.cameraInformations);
+    modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, createTextureFromImage, image);
+  }
+  else {
+    modelPreview.applyTextureToModelFromImage(URL.createObjectURL(image));
+
+    let formData = new FormData();
+    formData.append("modelID", openModelID);
+    formData.append("textureImage", image);
+    formData.append("modelWithTexturePreview", modelPreview.captureScreenshot().img);
+    $.ajax({
+      url: API_ENDPOINTS.texture.create.url + "image",
+      type: API_ENDPOINTS.texture.create.method,
+      
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (data) {
+        let parsedData = JSON.parse(data);
+        for(let i = 0; i < models.length; i++) {
+          if(models[i].IDModel == openModelID) {
+            models[i].textures.push(parsedData);
+            break;
+          }
+        }
+        addTextureDOM(parsedData);
+        notifyTextureAddition(openModelID);
+        alertBanner('Texture created successfully', true, 'banner-alert');
+      },
+      error: function (error) {
+        let textError = JSON.parse(error.responseText);
+        alertBanner("Error creating the texture: " + textError.message, false, 'banner-alert');
+      }
+    });
+  }
+}
+
+
+/* Texture delete */
+
+let removeTextureFromDom = function (textureID) {
+  $(`.banner .body .texture[data-id_texture="${textureID}"]`).remove();
+}
+
+let deleteTexture = function(textureID) {
+  textureID = textureID[0]; // The textureID is the first element of the array (look at the function requestConfirm)
+  /* Verify that the texture is not the default texture */
+  if (models.find((item) => item.IDModel === openModelID).defaultTexture.textureID === textureID) {
+    alertBanner("Error deleting the texture: The default texture cannot be deleted", false, 'banner-alert');
+    return;
+  }
+  /* Verify that the texture is not selected */
+  if (isSelected(openModelID, textureID)) {
+    alertBanner("Error deleting the texture: The selected texture cannot be deleted", false, 'banner-alert');
+    return;
+  }
+  /* Delete the texture */
+  $.ajax({
+    url: API_ENDPOINTS.texture.delete.url + textureID,
+    type: API_ENDPOINTS.texture.delete.method,
+    
+    success: function (data) {
+      /* Remove the texture from the DOM */
+      removeTextureFromDom(textureID);
+      /* Remove the texture from the models array */
+      for(let i = 0; i < models.length; i++) {
+        if(models[i].IDModel === openModelID) {
+          models[i].textures = models[i].textures.filter((texture) => texture.IDTexture !== textureID);
+          break;
+        }
+      }
+      notifyTextureDeletion(openModelID, textureID);
+      alertBanner('Texture deleted successfully', true, 'banner-alert');
+    },
+    error: function (error) {
+      let textError = JSON.parse(error.responseText);
+      alertBanner("Error deleting the texture: " + textError.message, false, 'banner-alert');
+    }
+  });
+}
+
+socket.on('delete-texture', function(data) {
+  /* Remove the texture from the model */
+  let IDModel = data.IDModel;
+  let IDTexture = data.IDTexture;
+  let model = models.find((item) => item.IDModel === IDModel);
+  let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
+  model.textures.splice(index, 1);
+
+  /* Update model in models */
+  let indexModel = models.findIndex((item) => item.IDModel === IDModel);
+  models[indexModel] = model;
+
+  if (openModelID == IDModel)
+    refreshModelBannerContent();
+})
+let notifyTextureDeletion = function(IDModel, IDTexture) {
+  socket.emit('delete-texture', { IDModel: IDModel, IDTexture: IDTexture });
+}
+
+
+/* Default texture */
+socket.on('texture-set-default', function(data) {
+  let IDModel = data.IDModel;
+  $.ajax({
+    url: API_ENDPOINTS.model.get.url + IDModel,
+    type: API_ENDPOINTS.model.get.method,
+    success: function (data) {
+      data = JSON.parse(data);
+
+      /* Update model in models */
+      let index = models.findIndex((item) => item.IDModel === IDModel);
+      models[index] = data;
+
+      /* Refresh the default texture in the DOM */
+      changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
+
+      /* If the banner is open, update the banner */
+      if (openModelID == IDModel)
+        refreshModelBannerContent();
+    }, error: function(err) {
+      window.location.href = ERROR_SERVER;
+    }
+  })
+})
+let notifyTextureSetDefault = function(IDModel, IDTexture) {
+  socket.emit('texture-set-default', { IDModel: IDModel, IDTexture: IDTexture });
+}
+
+let changeDefaultTextureDOMUpdate = function(modelID, textureID) {
+  $("#modelBanner .texture").removeClass("defaultTexture");
+  $("#modelBanner .texture[data-id_texture='" + textureID + "']").addClass("defaultTexture");
+  for(let i = 0; i < models.length; i++) {
+    if(models[i].IDModel == modelID) {
+      models[i].defaultTexture.textureID = textureID;
+      models[i].defaultTexture.textureExtension = models[i].textures.find((item) => item.IDTexture === textureID).textureExtension;
+      break;
+    }
+  }
+  console.log(getSelectedModelID(), modelID);
+  if (getSelectedModelID() != modelID) {
+    let imgSrc = MODELS_FOLDER + modelID + "/" + textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
+    $(".model[data-model_id='" + modelID + "'] .model-img").attr("src", imgSrc);
+  }
+}
+let changeDefaultTexture = function(textureID) {
+  let modelID = openModelID;
+  let formData = new FormData();
+  formData.append("textureID", textureID);
+  $.ajax({
+    url: API_ENDPOINTS.texture.setDefault.url + modelID,
+    type: API_ENDPOINTS.texture.setDefault.method,
+    data: formData,
+    
+    processData: false,
+    contentType: false,
+    success: function (data) {
+      changeDefaultTextureDOMUpdate(modelID, textureID);
+      notifyTextureSetDefault(modelID, textureID);
+    },
+    error: function (error) {
+      let textError = JSON.parse(error.responseText);
+      alertBanner("Error changing the default texture: " + textError.message, false, 'banner-alert');
+    }
+  });
+}
+
+/* Banner management */
+socket.on('lock-model', function(data) {
+  let IDModel = data.IDModel;
+  let model = models.find((item) => item.IDModel === IDModel);
+  lockedModels.push(model);
+})
+socket.on('unlock-model', function(data) {
+  let IDModel = data.IDModel;
+  let model = models.find((item) => item.IDModel === IDModel);
+  lockedModels.splice(lockedModels.indexOf(model), 1);
+})
+let isModelLocked = function(IDModel) {
+  return lockedModels.find((item) => item.IDModel === IDModel) !== undefined;
+}
+let notifyModelLock = function() {
+  socket.emit('lock-model', { IDModel: openModelID });
+}
+let notifyModelUnlock = function() {
+  socket.emit('unlock-model', { IDModel: openModelID });
+}
+
+function openModelBanner(modelID) {
+  /* Save selected model info for later use */
+  let selectedModel = models.find((item) => item.IDModel === modelID);  
+  openModelID = modelID;
+  openModelSelectedModel = selectedModel;
+
+  /* Lock the model */
+  notifyModelLock();
+
+  /* Create banner content */
+  $("#modelBanner .body .texture").remove();
+  openModelSelectedModel.textures.forEach((texture) => { addTextureDOM(texture) });
+  $("#modelBanner .header .title").val(openModelSelectedModel.modelName);
+
+  /* Show the banner */
+  $("#modelBanner").addClass("active");
+  $("#bannerOverlay").addClass("active");
+  $("#bannerOverlay, .close-banner").on("click", () => { closeModelbanner() });
+}
+
+function closeModelbanner() {
+  /* Unlock the model */
+  notifyModelUnlock();
+
+  /* Delete data */
+  openModelID = null;
+  openModelSelectedModel = null;
+  modelLoaded = false;
+
+  /* Hide the banner */
+  $("#modelBanner").removeClass("active");
+  $("#bannerOverlay").removeClass("active");
+  $("#bannerOverlay, .close-banner").off("click");
+}
+
+function refreshModelBannerContent() {
+  /* Save selected model info for later use */
+  let selectedModel = models.find((item) => item.IDModel === openModelID);  
+  openModelSelectedModel = selectedModel;
+
+  /* Create banner content */
+  $("#modelBanner .body .texture").remove();
+  openModelSelectedModel.textures.forEach((texture) => { addTextureDOM(texture) });
+  $("#modelBanner .header .title").val(openModelSelectedModel.modelName);
+
+  /* Show the banner */
+  $("#modelBanner").addClass("active");
+  $("#bannerOverlay").addClass("active");
+  $("#bannerOverlay, .close-banner").on("click", () => { closeModelbanner() });
+}
+
+
+/* Active model management */
+socket.on('set-active-model', function(data) {
+  selectElement(data.IDModel, data.IDTexture, false);
+})
+socket.on('unset-active-model', function() {
+  unsetSelected(false);
+})
+let notifySetActiveModel = function() {
+  socket.emit('set-active-model', { IDModel: getSelectedModelID(), IDTexture: getSelectedTextureID() });
+}
+let notifyUnsetActiveModel = function() {
+  socket.emit('unset-active-model');
 }
 
 let getSelectedModelID = function() {
@@ -412,59 +666,53 @@ let getSelectedModelID = function() {
 }
 
 let getSelectedTextureID = function() {
-  return selectedElement.textureID;
+  return selectedElement.IDTexture;
 }
 
 let isSelected = function(modelID, IDTexture) {
   return selectedElement.modelID === modelID && selectedElement.IDTexture === IDTexture;
 }
 
-let selectElement = function(modelID, IDTexture) {
-  unsetSelected();
-  let model = models.find((item) => item.IDModel === modelID);
+let selectElement = function(modelID, IDTexture, isOrigin = true) {
+  unsetSelected(false);
+
+  let model = models.find((item) => item.IDModel === modelID);  
+  $(`.models > .row > div[data-model_id="${modelID}"]`).addClass("active");
+  let modelPreviewURL = MODELS_FOLDER + modelID + "/" + IDTexture + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
+  $(`.models > .row > div[data-model_id="${modelID}"] > .card > .model-img`).attr("src", modelPreviewURL);
+  
   let texture = model.textures.find((item) => item.IDTexture === IDTexture);
+  let textureExtension = texture.extension;
+  let texturePreviewURL = MODELS_FOLDER + modelID + "/" + IDTexture + "." + textureExtension;
+  $(`.models > .row > div[data-model_id="${modelID}"] > .card > .active-model-texture-img`).attr("src", texturePreviewURL);
+  $("#modelBanner .texture[data-id_texture='" + IDTexture + "']").addClass("active");
 
   selectedElement.modelID = modelID;
-  $(`.models > .row > div[data-model_id="${modelID}"]`).addClass("active");
-  let modelPreviewURL = MODELS_FOLDER + modelID + "/" + texture.IDTexture + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
-  $(`.models > .row > div[data-model_id="${modelID}"] > .card > .model-img`).attr("src", modelPreviewURL);
-
   selectedElement.IDTexture = IDTexture;
-  let texturePreviewURL = MODELS_FOLDER + modelID + "/" + texture.IDTexture + "." + texture.extension;
-  $(`.models > .row > div[data-model_id="${modelID}"] > .card > .active-model-texture-img`).attr("src", texturePreviewURL);
 
   /* Send selected model to the server */
-  sendSelectedModel();
+  if (isOrigin)
+    notifySetActiveModel();
 }
 
-let unsetSelected = function() {
+let unsetSelected = function(isOrigin = true) {
   $(".models > .row > div").removeClass("active");
+  $("#modelBanner .texture").removeClass("active");
+
   selectedElement.modelID = null;
   selectedElement.IDTexture = null;
 
+  updateDefaultDOMModelPreview();
+  
   /* Send unset selected model command to the server */
-  sendUnsetSelectedModel();
+  if (isOrigin)
+    notifyUnsetActiveModel();
 }
 
-/* Socket management */
-/*let socket = io.connect(SOCKET_ENDPOINT);
-
-socket.on("connect", function () {
-  console.log("Connected to the server");
-});
-
-socket.on("disconnect", function () {
-  console.log("Disconnected from the server");
-});
-
-socket.on("selectModel", function (data) {
-  selectElement(data.modelID, data.textureID);
-});
-*/
-let sendSelectedModel = function() {
-  //socket.emit("selectModel", { modelID: getSelectedModelID(), textureID: getSelectedTextureID() });
-}
-
-let sendUnsetSelectedModel = function() {
-  //socket.emit("unsetSelectedModel");
-}
+/* Refresh */
+socket.on('refresh', function() {
+  if (openModelID !== null)
+    notifyModelLock(openModelID);
+  if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
+    notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
+})

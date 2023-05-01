@@ -1,17 +1,9 @@
-/** MODIFY BELOW BEFORE DEPLOYMENT (don't change the names!!) **/
-
 /* Definition of the domains of the application */
 const SELF_DOMAIN = "http://virtualenv.epfl.ch/";
 const API_DOMAIN = "http://virtualenv.epfl.ch/api";
-const WEBSOCKET_DOMAIN = "";
-
-if (SELF_DOMAIN === null || API_DOMAIN === null || WEBSOCKET_DOMAIN === null) {
-    alert("Please configure the domains in assets/js/settings.js before deployment.");
-}
-
-/** MODIFY ABOVE BEFORE DEPLOYMENT **/
-
-/** DO NOT MODIFY THE CODE BELOW IF YOU HAVEN'T CHANGED THE DEFAULT VERSION **/
+const WEBSOCKET_DOMAIN = "http://virtualenv.epfl.ch/ws";
+const WEBSOCKET_PATH = "/ws";
+const WEBSOCKET_DOMAIN_API = "http://virtualenv.epfl.ch/ws/endpoints";
 
 /* Define user interface pages */
 const HOME = SELF_DOMAIN + 'index.html';
@@ -22,6 +14,10 @@ const API_ENDPOINTS = {
     "settings": {
         "get": {
             "url": API_DOMAIN+"/settings",
+            "method": "GET"
+        },
+        "ip": {
+            "url": API_DOMAIN+"/ip",
             "method": "GET"
         }
     },
@@ -45,6 +41,18 @@ const API_ENDPOINTS = {
       "exists": {
         "url": API_DOMAIN+"/model/modelNameTaken/",
         "method": "GET"
+      },
+      "get": {
+        "url": API_DOMAIN+"/model/modelID/",
+        "method": "GET"
+      },
+      "lock": {
+        "url": WEBSOCKET_DOMAIN_API+"/lock-model",
+        "method": "POST"
+      },
+      "unlock": {
+        "url": WEBSOCKET_DOMAIN_API+"/unlock-model",
+        "method": "POST"
       }
     },
     "texture": {

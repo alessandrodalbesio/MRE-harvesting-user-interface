@@ -24,3 +24,12 @@ body > .header button > span {
   color: red;
   font-size: 15px;
 }
+.alert-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.alert-banner > i {
+  position: absolute;
+  right: 1rem;
+}
