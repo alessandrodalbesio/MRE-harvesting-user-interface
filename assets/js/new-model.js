@@ -274,14 +274,23 @@ $(document).ready(function () {
 })
 
 
-/* Socket implementation */
-const socket = io(SELF_DOMAIN, {path: WEBSOCKET_PATH});
-socket.connect();
-
-let notifyNewModel = function(IDModel) {
-  socket.emit('new-model', {IDModel: IDModel});
-}
-
-socket.on('new-model', function() {
-  verifyNumberOfModels();
+/* Websocket implementation */
+const socket = new WebSocket(WEBSOCKET_DOMAIN);
+socket.addEventListener('open', function (event) {
+  console.log("Websocket connection established");
 });
+socket.addEventListener('close', function (event) {
+  console.log("Websocket connection closed");
+});
+socket.addEventListener('error', function (event) {
+  console.log("Websocket connection error");
+});
+socket.addEventListener('message', function (event) {
+  const message = JSON.parse(event.data);
+  if (message.type === "new-model") {
+    verifyNumberOfModels();
+  }
+});
+let notifyNewModel = function(IDModel) {
+  socket.send(JSON.stringify({type: "new-model", IDModel: IDModel}));
+}

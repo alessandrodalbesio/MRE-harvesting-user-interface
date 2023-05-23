@@ -125,24 +125,6 @@ $(document).ready(function () {
 
 
 /* Socket connection */
-const socket = io(SELF_DOMAIN, {path: WEBSOCKET_PATH});
-socket.connect();
-
-/* Models management */
-socket.on('new-model', function(data) {
-  let IDModel = data.IDModel;
-  $.ajax({
-    url: API_ENDPOINTS.model.get.url + IDModel,
-    type: API_ENDPOINTS.model.get.method,
-    success: function (data) {
-      models.push(JSON.parse(data));
-      addModelToDom(JSON.parse(data));
-    },
-    error: function(err) {  
-      window.location.href = ERROR_SERVER;
-    }
-  });
-})
 let addModelToDom = function (model) {
   let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
   let imgSelectedTexture = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "."+model.defaultTexture.textureExtension;
@@ -184,7 +166,7 @@ socket.on('update-model', function(data) {
 })
 
 let notifyModelUpdate = function(IDModel) {
-  socket.emit('update-model', { IDModel: IDModel });
+  sendWebsocketMessage({ type: 'update-model', data: { IDModel: IDModel } });
 }
 
 let updateModelnameDOM = function (modelID, modelName) {
@@ -239,7 +221,7 @@ socket.on('delete-model', function(data) {
 })
 
 let notifyModelDeletion = function(IDModel) {
-  socket.emit('delete-model', { IDModel: IDModel });
+  sendWebsocketMessage({ type: 'delete-model', data: { IDModel: IDModel } });
 }
 
 let removeModelFromDom = (modelID) => { 
@@ -303,7 +285,7 @@ socket.on('new-texture', function(data) {
   });
 })
 let notifyTextureAddition = function(IDModel) {
-  socket.emit('new-texture', { IDModel: IDModel });
+  sendWebsocketMessage({ type: 'new-texture', data: { IDModel: IDModel } });
 }
 
 let updateDefaultDOMModelPreview = function() {
@@ -488,52 +470,13 @@ let deleteTexture = function(textureID) {
   });
 }
 
-socket.on('delete-texture', function(data) {
-  /* Remove the texture from the model */
-  let IDModel = data.IDModel;
-  let IDTexture = data.IDTexture;
-  let model = models.find((item) => item.IDModel === IDModel);
-  let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
-  model.textures.splice(index, 1);
-
-  /* Update model in models */
-  let indexModel = models.findIndex((item) => item.IDModel === IDModel);
-  models[indexModel] = model;
-
-  if (openModelID == IDModel)
-    refreshModelBannerContent();
-})
 let notifyTextureDeletion = function(IDModel, IDTexture) {
-  socket.emit('delete-texture', { IDModel: IDModel, IDTexture: IDTexture });
+  sendWebsocketMessage({ type: 'delete-texture', data: { IDModel: IDModel, IDTexture: IDTexture } });
 }
 
-
 /* Default texture */
-socket.on('texture-set-default', function(data) {
-  let IDModel = data.IDModel;
-  $.ajax({
-    url: API_ENDPOINTS.model.get.url + IDModel,
-    type: API_ENDPOINTS.model.get.method,
-    success: function (data) {
-      data = JSON.parse(data);
-
-      /* Update model in models */
-      let index = models.findIndex((item) => item.IDModel === IDModel);
-      models[index] = data;
-
-      /* Refresh the default texture in the DOM */
-      changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
-
-      /* If the banner is open, update the banner */
-      if (openModelID == IDModel)
-        refreshModelBannerContent();
-    }, error: function(err) {
-      window.location.href = ERROR_SERVER;
-    }
-  })
-})
 let notifyTextureSetDefault = function(IDModel, IDTexture) {
-  socket.emit('texture-set-default', { IDModel: IDModel, IDTexture: IDTexture });
+  sendWebsocketMessage({ type: 'set-default-texture', data: { IDModel: IDModel, IDTexture: IDTexture } });
 }
 
 let changeDefaultTextureDOMUpdate = function(modelID, textureID) {
@@ -546,7 +489,6 @@ let changeDefaultTextureDOMUpdate = function(modelID, textureID) {
       break;
     }
   }
-  console.log(getSelectedModelID(), modelID);
   if (getSelectedModelID() != modelID) {
     let imgSrc = MODELS_FOLDER + modelID + "/" + textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
     $(".model[data-model_id='" + modelID + "'] .model-img").attr("src", imgSrc);
@@ -575,24 +517,14 @@ let changeDefaultTexture = function(textureID) {
 }
 
 /* Banner management */
-socket.on('lock-model', function(data) {
-  let IDModel = data.IDModel;
-  let model = models.find((item) => item.IDModel === IDModel);
-  lockedModels.push(model);
-})
-socket.on('unlock-model', function(data) {
-  let IDModel = data.IDModel;
-  let model = models.find((item) => item.IDModel === IDModel);
-  lockedModels.splice(lockedModels.indexOf(model), 1);
-})
 let isModelLocked = function(IDModel) {
   return lockedModels.find((item) => item.IDModel === IDModel) !== undefined;
 }
 let notifyModelLock = function() {
-  socket.emit('lock-model', { IDModel: openModelID });
+  sendWebsocketMessage({ type: 'lock-model', data: { IDModel: openModelID } });
 }
 let notifyModelUnlock = function() {
-  socket.emit('unlock-model', { IDModel: openModelID });
+  sendWebsocketMessage({ type: 'unlock-model', data: { IDModel: openModelID } });
 }
 
 function openModelBanner(modelID) {
@@ -648,17 +580,11 @@ function refreshModelBannerContent() {
 
 
 /* Active model management */
-socket.on('set-active-model', function(data) {
-  selectElement(data.IDModel, data.IDTexture, false);
-})
-socket.on('unset-active-model', function() {
-  unsetSelected(false);
-})
 let notifySetActiveModel = function() {
-  socket.emit('set-active-model', { IDModel: getSelectedModelID(), IDTexture: getSelectedTextureID() });
+  sendWebsocketMessage({ type: 'set-active-model', data: { IDModel: getSelectedModelID(), IDTexture: getSelectedTextureID() } });
 }
 let notifyUnsetActiveModel = function() {
-  socket.emit('unset-active-model');
+  sendWebsocketMessage({ type: 'unset-active-model' });
 }
 
 let getSelectedModelID = function() {
@@ -709,10 +635,95 @@ let unsetSelected = function(isOrigin = true) {
     notifyUnsetActiveModel();
 }
 
-/* Refresh */
-socket.on('refresh', function() {
-  if (openModelID !== null)
-    notifyModelLock(openModelID);
-  if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
-    notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
-})
+/* Websocket implementation */
+const socket = new WebSocket(WEBSOCKET_URL);
+
+/* Models management */
+socket.addEventListener('message', function(event) {
+  const message = JSON.parse(event.data);
+  const messageType = message.type;
+  const messageData = message.data;
+
+  if (messageType === 'new-model') {
+    const IDModel = messageData.IDModel;
+    fetch(API_ENDPOINTS.model.get.url + IDModel, {
+      method: API_ENDPOINTS.model.get.method
+    })
+      .then(response => response.json())
+      .then(data => {
+        models.push(data);
+        addModelToDom(data);
+      })
+      .catch(error => {
+        window.location.href = ERROR_SERVER;
+      });
+  } else if (messageType == 'delete-texture') {
+    let IDModel = messageData.IDModel;
+    let IDTexture = messageData.IDTexture;
+    let model = models.find((item) => item.IDModel === IDModel);
+    let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
+    model.textures.splice(index, 1);
+    
+    /* Update model in models */
+    let indexModel = models.findIndex((item) => item.IDModel === IDModel);
+    models[indexModel] = model;
+    
+    if (openModelID == IDModel)
+      refreshModelBannerContent();
+  } else if(messageType == 'texture-set-default') {
+    let IDModel = messageData.IDModel;
+    $.ajax({
+      url: API_ENDPOINTS.model.get.url + IDModel,
+      type: API_ENDPOINTS.model.get.method,
+      success: function (data) {
+        data = JSON.parse(data);
+    
+        /* Update model in models */
+        let index = models.findIndex((item) => item.IDModel === IDModel);
+        models[index] = data;
+    
+        /* Refresh the default texture in the DOM */
+        changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
+    
+        /* If the banner is open, update the banner */
+        if (openModelID == IDModel)
+          refreshModelBannerContent();
+      }, error: function(err) {
+        window.location.href = ERROR_SERVER;
+      }
+    })
+  } else if(messageType == 'lock-model') {
+    let IDModel = messageData.IDModel;
+    let model = models.find((item) => item.IDModel === IDModel);
+    lockedModels.push(model);
+  } else if(messageType == 'unlock-model') {
+    let IDModel = messageData.IDModel;
+    let model = models.find((item) => item.IDModel === IDModel);
+    lockedModels.splice(lockedModels.indexOf(model), 1);
+  } else if(messageType == 'set-active-model') {
+    selectElement(messageData.IDModel, messageData.IDTexture, false);
+  } else if(messageType == 'unset-active-model') {
+    unsetSelected(false);
+  } else if(messageType == 'refresh') {
+    if (openModelID !== null)
+      notifyModelLock(openModelID);
+    if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
+      notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
+  }
+});
+
+socket.addEventListener('open', function() {
+  console.log('WebSocket connection established.');
+});
+
+socket.addEventListener('close', function() {
+  console.log('WebSocket connection closed.');
+});
+
+socket.addEventListener('error', function(error) {
+  console.error('WebSocket error:', error);
+});
+
+let sendWebsocketMessage = function(message) {
+  socket.send(JSON.stringify(message));
+}

@@ -1,9 +1,7 @@
 /* Definition of the domains of the application */
 const SELF_DOMAIN = "http://virtualenv.epfl.ch/";
 const API_DOMAIN = "http://virtualenv.epfl.ch/api";
-const WEBSOCKET_DOMAIN = "http://virtualenv.epfl.ch/ws";
-const WEBSOCKET_PATH = "/ws";
-const WEBSOCKET_DOMAIN_API = "http://virtualenv.epfl.ch/ws/endpoints";
+const WEBSOCKET_DOMAIN = "ws://virtualenv.epfl.ch/ws";
 
 /* Define user interface pages */
 const HOME = SELF_DOMAIN + 'index.html';
