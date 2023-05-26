@@ -1,6 +1,6 @@
 import { modelPreviewManager, modelPreviewManagerTextureUpload } from "modelPreview";
 
-const MODELS_FOLDER = "models/";
+/* Constant variables that are retrieved from the server */
 let MODEL_FILE_NAME = null
 let MODEL_TEXTURE_PREVIEW_NAME = null
 let MODEL_TEXTURE_PREVIEW_FORMAT = null
@@ -13,6 +13,158 @@ let openModelID = null; /* The ID of the model that is currently opened in the l
 let openModelSelectedModel = null; /* The model that is currently opened in the left banner */
 let lockedModels = []; /* List of the models that are locked by other users */
 let selectedElement = {  modelID: null,  IDTexture: null };
+
+/*** Websocket implementation ***/
+const socket = new WebSocket(WEBSOCKET_DOMAIN);
+
+/* Message manager */
+socket.addEventListener('message', function(event) {
+  const message = JSON.parse(event.data);
+  const type = message.type;
+  const data = message.data;
+
+  if (type === 'new-model') {
+    /* Get the list of all the models and find the ones that are not in models */
+    $.ajax({
+      url: API_ENDPOINTS.model.list.url,
+      type: API_ENDPOINTS.model.list.method,
+      success: function (data) {
+        data = JSON.parse(data);
+        data.forEach((element) => {
+          if (models.findIndex((item) => item.IDModel === element.IDModel) === -1) {
+            models.push(element);
+            addModelToDom(element);
+          }
+        });
+      }, error: function(err) {
+        window.location.href = ERROR_SERVER;
+      }
+    });
+  } else if (type == 'update-model') {
+    let IDModel = data.IDModel;
+    $.ajax({
+      url: API_ENDPOINTS.model.get.url + IDModel,
+      type: API_ENDPOINTS.model.get.method,
+      success: function (data) {
+        data = JSON.parse(data);
+        
+        /* Update model in models */
+        let index = models.findIndex((item) => item.IDModel === IDModel);
+        models[index] = data;
+  
+        /* Update model in DOM */
+        updateModelnameDOM(IDModel, data.modelName);
+        
+        /* If the selected model is the updated one, update the banner */
+        if (openModelID == IDModel)
+          $("#modelNameBanner").val(data.modelName);
+      }, error: function(err) {
+        window.location.href = ERROR_SERVER;
+      }
+    });
+  } else if (type == 'delete-model') {
+    let IDModel = data.IDModel;
+
+    /* Remove model from models */
+    let index = models.findIndex((item) => item.IDModel === IDModel);
+    models.splice(index, 1);
+  
+    /* Remove model from DOM */
+    removeModelFromDom(IDModel);
+  } else if (type == 'new-texture') {
+    /* Manage a new texture addition */
+    let IDModel = data.IDModel;
+    $.ajax({
+      url: API_ENDPOINTS.model.get.url + data.IDModel,
+      type: API_ENDPOINTS.model.get.method,
+      success: function (data) {
+        data = JSON.parse(data);
+
+        /* Update model in models */
+        let index = models.findIndex((item) => item.IDModel === IDModel);
+        models[index] = data;
+        
+        /* If the banner is open, update the banner */
+        if (openModelID == IDModel)
+          refreshModelBannerContent();
+      }, error: function(err) {
+        window.location.href = ERROR_SERVER;
+      }
+    });
+  } else if (type == 'delete-texture') {
+    let IDModel = data.IDModel;
+    let IDTexture = data.IDTexture;
+    let model = models.find((item) => item.IDModel === IDModel);
+    let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
+    model.textures.splice(index, 1);
+    
+    /* Update model in models */
+    let indexModel = models.findIndex((item) => item.IDModel === IDModel);
+    models[indexModel] = model;
+    
+    if (openModelID == IDModel)
+      refreshModelBannerContent();
+  } else if(type == 'texture-set-default') {
+    let IDModel = data.IDModel;
+    $.ajax({
+      url: API_ENDPOINTS.model.get.url + IDModel,
+      type: API_ENDPOINTS.model.get.method,
+      success: function (data) {
+        data = JSON.parse(data);
+    
+        /* Update model in models */
+        let index = models.findIndex((item) => item.IDModel === IDModel);
+        models[index] = data;
+    
+        /* Refresh the default texture in the DOM */
+        changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
+    
+        /* If the banner is open, update the banner */
+        if (openModelID == IDModel)
+          refreshModelBannerContent();
+      }, error: function(err) {
+        window.location.href = ERROR_SERVER;
+      }
+    })
+  } else if(type == 'lock-model') {
+    let IDModel = data.IDModel;
+    let model = models.find((item) => item.IDModel === IDModel);
+    lockedModels.push(model);
+  } else if(type == 'unlock-model') {
+    let IDModel = data.IDModel;
+    let model = models.find((item) => item.IDModel === IDModel);
+    lockedModels.splice(lockedModels.indexOf(model), 1);
+  } else if(type == 'set-active-model') {
+    selectElement(data.IDModel, data.IDTexture, false);
+  } else if(type == 'unset-active-model') {
+    unsetSelected(false);
+  } else if(type == 'refresh') {
+    // WTF?
+    if (openModelID !== null)
+      notifyModelLock(openModelID);
+    if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
+      notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
+  }
+});
+
+socket.addEventListener('open', function() {
+  console.log('WebSocket connection established.');
+});
+
+socket.addEventListener('close', function() {
+  console.log('WebSocket connection closed.');
+});
+
+socket.addEventListener('error', function(error) {
+  console.error('WebSocket error:', error);
+});
+
+let sendWebsocketMessage = function(message) {
+  socket.send(JSON.stringify(message));
+}
+
+
+/*** JS Implementation  ***/
 
 /* Confirm banner */
 function requestConfirm(message, callback, ...args) {
@@ -141,30 +293,6 @@ let addModelToDom = function (model) {
 };
 
 /* Model update */
-socket.on('update-model', function(data) {
-  let IDModel = data.IDModel;
-  $.ajax({
-    url: API_ENDPOINTS.model.get.url + IDModel,
-    type: API_ENDPOINTS.model.get.method,
-    success: function (data) {
-      data = JSON.parse(data);
-      
-      /* Update model in models */
-      let index = models.findIndex((item) => item.IDModel === IDModel);
-      models[index] = data;
-
-      /* Update model in DOM */
-      updateModelnameDOM(IDModel, data.modelName);
-      
-      /* If the selected model is the updated one, update the banner */
-      if (openModelID == IDModel)
-        $("#modelNameBanner").val(data.modelName);
-    }, error: function(err) {
-      window.location.href = ERROR_SERVER;
-    }
-  });
-})
-
 let notifyModelUpdate = function(IDModel) {
   sendWebsocketMessage({ type: 'update-model', data: { IDModel: IDModel } });
 }
@@ -209,17 +337,6 @@ let updateModelname = function(modelID, modelName) {
 
 
 /* Model delete */
-socket.on('delete-model', function(data) {
-  let IDModel = data.IDModel;
-
-  /* Remove model from models */
-  let index = models.findIndex((item) => item.IDModel === IDModel);
-  models.splice(index, 1);
-
-  /* Remove model from DOM */
-  removeModelFromDom(IDModel);
-})
-
 let notifyModelDeletion = function(IDModel) {
   sendWebsocketMessage({ type: 'delete-model', data: { IDModel: IDModel } });
 }
@@ -262,28 +379,6 @@ let deleteModel = function (params) {
 };
 
 /* Texture creation */
-socket.on('new-texture', function(data) {
-  let IDModel = data.IDModel;
-
-  /* Get texture information */
-  $.ajax({
-    url: API_ENDPOINTS.model.get.url + data.IDModel,
-    type: API_ENDPOINTS.model.get.method,
-    success: function (data) {
-      data = JSON.parse(data);
-
-      /* Update model in models */
-      let index = models.findIndex((item) => item.IDModel === IDModel);
-      models[index] = data;
-      
-      /* If the banner is open, update the banner */
-      if (openModelID == IDModel)
-        refreshModelBannerContent();
-    }, error: function(err) {
-      window.location.href = ERROR_SERVER;
-    }
-  });
-})
 let notifyTextureAddition = function(IDModel) {
   sendWebsocketMessage({ type: 'new-texture', data: { IDModel: IDModel } });
 }
@@ -508,6 +603,7 @@ let changeDefaultTexture = function(textureID) {
     success: function (data) {
       changeDefaultTextureDOMUpdate(modelID, textureID);
       notifyTextureSetDefault(modelID, textureID);
+      sendWebsocketMessage({type: 'texture-set-default', data: {IDModel: modelID}});
     },
     error: function (error) {
       let textError = JSON.parse(error.responseText);
@@ -633,97 +729,4 @@ let unsetSelected = function(isOrigin = true) {
   /* Send unset selected model command to the server */
   if (isOrigin)
     notifyUnsetActiveModel();
-}
-
-/* Websocket implementation */
-const socket = new WebSocket(WEBSOCKET_URL);
-
-/* Models management */
-socket.addEventListener('message', function(event) {
-  const message = JSON.parse(event.data);
-  const messageType = message.type;
-  const messageData = message.data;
-
-  if (messageType === 'new-model') {
-    const IDModel = messageData.IDModel;
-    fetch(API_ENDPOINTS.model.get.url + IDModel, {
-      method: API_ENDPOINTS.model.get.method
-    })
-      .then(response => response.json())
-      .then(data => {
-        models.push(data);
-        addModelToDom(data);
-      })
-      .catch(error => {
-        window.location.href = ERROR_SERVER;
-      });
-  } else if (messageType == 'delete-texture') {
-    let IDModel = messageData.IDModel;
-    let IDTexture = messageData.IDTexture;
-    let model = models.find((item) => item.IDModel === IDModel);
-    let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
-    model.textures.splice(index, 1);
-    
-    /* Update model in models */
-    let indexModel = models.findIndex((item) => item.IDModel === IDModel);
-    models[indexModel] = model;
-    
-    if (openModelID == IDModel)
-      refreshModelBannerContent();
-  } else if(messageType == 'texture-set-default') {
-    let IDModel = messageData.IDModel;
-    $.ajax({
-      url: API_ENDPOINTS.model.get.url + IDModel,
-      type: API_ENDPOINTS.model.get.method,
-      success: function (data) {
-        data = JSON.parse(data);
-    
-        /* Update model in models */
-        let index = models.findIndex((item) => item.IDModel === IDModel);
-        models[index] = data;
-    
-        /* Refresh the default texture in the DOM */
-        changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
-    
-        /* If the banner is open, update the banner */
-        if (openModelID == IDModel)
-          refreshModelBannerContent();
-      }, error: function(err) {
-        window.location.href = ERROR_SERVER;
-      }
-    })
-  } else if(messageType == 'lock-model') {
-    let IDModel = messageData.IDModel;
-    let model = models.find((item) => item.IDModel === IDModel);
-    lockedModels.push(model);
-  } else if(messageType == 'unlock-model') {
-    let IDModel = messageData.IDModel;
-    let model = models.find((item) => item.IDModel === IDModel);
-    lockedModels.splice(lockedModels.indexOf(model), 1);
-  } else if(messageType == 'set-active-model') {
-    selectElement(messageData.IDModel, messageData.IDTexture, false);
-  } else if(messageType == 'unset-active-model') {
-    unsetSelected(false);
-  } else if(messageType == 'refresh') {
-    if (openModelID !== null)
-      notifyModelLock(openModelID);
-    if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
-      notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
-  }
-});
-
-socket.addEventListener('open', function() {
-  console.log('WebSocket connection established.');
-});
-
-socket.addEventListener('close', function() {
-  console.log('WebSocket connection closed.');
-});
-
-socket.addEventListener('error', function(error) {
-  console.error('WebSocket error:', error);
-});
-
-let sendWebsocketMessage = function(message) {
-  socket.send(JSON.stringify(message));
 }

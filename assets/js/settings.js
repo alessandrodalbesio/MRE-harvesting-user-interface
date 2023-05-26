@@ -1,6 +1,7 @@
 /* Definition of the domains of the application */
 const SELF_DOMAIN = "http://virtualenv.epfl.ch/";
 const API_DOMAIN = "http://virtualenv.epfl.ch/api";
+const MODELS_FOLDER = "http://virtualenv.epfl.ch/models/";
 const WEBSOCKET_DOMAIN = "ws://virtualenv.epfl.ch/ws";
 
 /* Define user interface pages */
@@ -43,14 +44,6 @@ const API_ENDPOINTS = {
       "get": {
         "url": API_DOMAIN+"/model/modelID/",
         "method": "GET"
-      },
-      "lock": {
-        "url": WEBSOCKET_DOMAIN_API+"/lock-model",
-        "method": "POST"
-      },
-      "unlock": {
-        "url": WEBSOCKET_DOMAIN_API+"/unlock-model",
-        "method": "POST"
       }
     },
     "texture": {

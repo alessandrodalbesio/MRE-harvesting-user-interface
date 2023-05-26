@@ -24,7 +24,8 @@ $(document).ready(function () {
     if (window.innerWidth > MIN_PAGE_WIDTH)
       modelPreview.resize(bodyWidth*CANVAS_WIDTH_RATION,bodyWidth*CANVAS_HEIGHT_RATION)
     else
-      window.location.href = DEVICE_IS_SMALL;
+      console.log("Error")
+      //window.location.href = DEVICE_IS_SMALL;
   })();
 
   /* Get the parameters needed from the server */
@@ -41,7 +42,7 @@ $(document).ready(function () {
         IMG_TEXTURE_EXTENSIONS = response.validTextureExtensions;
       },
       error: function () {
-        window.location.href = ERROR_SERVER;
+        //window.location.href = ERROR_SERVER;
       }
     })
   })();
@@ -250,7 +251,7 @@ $(document).ready(function () {
       processData: false,
       contentType: false,
       cache: false,
-      success: function () {
+      success: function (data) {
         alertBanner("The model has been uploaded successfully", true);
         $("#modelNameInput, #modelFileInput, #texture-image, #texture-color").val("");
         $("#texture-selection-row, #model-preview-row").addClass('hide');
@@ -292,5 +293,5 @@ socket.addEventListener('message', function (event) {
   }
 });
 let notifyNewModel = function(IDModel) {
-  socket.send(JSON.stringify({type: "new-model", IDModel: IDModel}));
+  socket.send(JSON.stringify({type: "new-model" }));
 }

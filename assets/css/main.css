@@ -33,3 +33,6 @@ body > .header button > span {
   position: absolute;
   right: 1rem;
 }
+.alert-banner > .alert-title {
+  margin-right: 5px;
+}
