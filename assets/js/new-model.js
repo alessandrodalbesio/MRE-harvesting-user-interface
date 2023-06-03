@@ -12,7 +12,6 @@ const MIN_PAGE_WIDTH = 992; // The maximum width of the page
 const CANVAS_WIDTH_RATION = 0.7; // The width of the canvas is 70% of the page width
 const CANVAS_HEIGHT_RATION = 0.5; // The height of the canvas is 60% of the page width
 
-
 $(document).ready(function () {
 
   /* Definition of the modelPreview */
@@ -24,8 +23,7 @@ $(document).ready(function () {
     if (window.innerWidth > MIN_PAGE_WIDTH)
       modelPreview.resize(bodyWidth*CANVAS_WIDTH_RATION,bodyWidth*CANVAS_HEIGHT_RATION)
     else
-      console.log("Error")
-      //window.location.href = DEVICE_IS_SMALL;
+      window.location.href = DEVICE_IS_SMALL;
   })();
 
   /* Get the parameters needed from the server */
@@ -41,13 +39,14 @@ $(document).ready(function () {
         MAX_TEXTURE_FILE_SIZE = response.maxTextureFileSize;
         IMG_TEXTURE_EXTENSIONS = response.validTextureExtensions;
       },
-      error: function () {
-        //window.location.href = ERROR_SERVER;
+      error: function (error) {
+        saveError(error.status + " " + error.statusText);
+        window.location.href = ERROR_SERVER;
       }
     })
   })();
 
-
+  /* If the number of models available is higher than one show the button to go to index.html*/
   let verifyNumberOfModels = function () {
     $.ajax({
       url: API_ENDPOINTS.model.list.url,
@@ -56,6 +55,10 @@ $(document).ready(function () {
       success: function (response) {
         if (response.length == 0)
           $(".header button").addClass("d-none");
+      }, 
+      error: function (error) {
+        saveError(error.status + " " + error.statusText);
+        window.location.href = ERROR_SERVER;
       }
     })
   }
@@ -76,8 +79,9 @@ $(document).ready(function () {
             addValidInputClass($("#modelNameInput"));
           }
         },
-        error: function () {
-          alertBanner("An error occurred while verifying the model name", false);
+        error: function (error) {
+          saveError(error.status + " " + error.statusText);
+          window.location.href = ERROR_SERVER;
         }
       });
     }
@@ -100,7 +104,7 @@ $(document).ready(function () {
       $("#texture-selection-row .need-validation").removeClass('need-validation is-valid');
       $("#texture-selection-row div").not(".texture-input-method").addClass('need-validation col-12').prop('selectedIndex',0);
       $(".texture-input-method").hide(); /* Hide all the texture inputs (they will be shown when an input method has been chosen) */
-      $("#texture-image, #texture-color").val(""); /* Reset the content */
+      $("#texture-image, #texture-color").val("#ffffff"); /* Reset the content */
     }
     else {
       $("#texture-selection-row, #model-preview-row").addClass('hide');
@@ -276,22 +280,41 @@ $(document).ready(function () {
 
 
 /* Websocket implementation */
-const socket = new WebSocket(WEBSOCKET_DOMAIN);
+let socket = new WebSocket(WEBSOCKET_DOMAIN);
+let retries_counter = 0;
 socket.addEventListener('open', function (event) {
+  retries_counter = 0;
   console.log("Websocket connection established");
 });
 socket.addEventListener('close', function (event) {
-  console.log("Websocket connection closed");
-});
-socket.addEventListener('error', function (event) {
-  console.log("Websocket connection error");
-});
-socket.addEventListener('message', function (event) {
-  const message = JSON.parse(event.data);
-  if (message.type === "new-model") {
-    verifyNumberOfModels();
+  if(retries_counter < MAX_RETRIES) {
+    retries_counter++;
+    setTimeout(function(){ 
+      socket = new WebSocket(WEBSOCKET_DOMAIN); 
+    }, 5000);
   }
 });
-let notifyNewModel = function(IDModel) {
+socket.addEventListener('error', function (event) {
+  saveError("Websocket connection error");
+  window.location.href = ERROR_SERVER;
+});
+socket.addEventListener('message', function (event) {
+  let message = JSON.parse(event.data);
+  if (message.type === "new-model")
+    verifyNumberOfModels();
+});
+let notifyNewModel = function() {
   socket.send(JSON.stringify({type: "new-model" }));
+}
+
+/* This function can be used to save into cache the errors */
+function saveError(errorText) {
+  const timeNow = new Date(Date.now()).toLocaleString();
+  const page_name = window.location.pathname.split("/").pop();
+  errorText = timeNow + " - " + errorText + " - " + page_name;
+  const error = sessionStorage.getItem("error");
+  if(error !== null)
+    sessionStorage.setItem("error", error + "\n" + errorText);
+  else
+    sessionStorage.setItem("error", errorText);
 }

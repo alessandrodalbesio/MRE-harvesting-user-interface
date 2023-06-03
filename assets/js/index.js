@@ -139,7 +139,6 @@ socket.addEventListener('message', function(event) {
   } else if(type == 'unset-active-model') {
     unsetSelected(false);
   } else if(type == 'refresh') {
-    // WTF?
     if (openModelID !== null)
       notifyModelLock(openModelID);
     if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)

@@ -14,10 +14,6 @@ const API_ENDPOINTS = {
         "get": {
             "url": API_DOMAIN+"/settings",
             "method": "GET"
-        },
-        "ip": {
-            "url": API_DOMAIN+"/ip",
-            "method": "GET"
         }
     },
     "model": {
@@ -68,3 +64,6 @@ const MODEL_NOT_FOUND = SELF_DOMAIN + 'error-pages/model-not-found.html';
 const NOT_COMPATIBLE = SELF_DOMAIN + 'error-pages/not-compatible.html';
 const NO_JS = SELF_DOMAIN + 'error-pages/no-js.html';
 const ERROR_SERVER = SELF_DOMAIN + 'error-pages/500.html';
+
+/* Websockets settings*/
+const MAX_RETRIES = 5;

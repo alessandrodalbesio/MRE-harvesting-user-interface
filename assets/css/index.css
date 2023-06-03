@@ -191,8 +191,6 @@
   transform: scale(1.1, 1.1);
 }
 
-
-
 .texture > .selectDefaultTexture, .texture > .defaultTextureIcon, .texture > .deleteTextureIcon {
   display: none;
 }
