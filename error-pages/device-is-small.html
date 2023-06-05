@@ -13,7 +13,14 @@
                 <h1 class="display-1 fw-bold"><i class="fa-solid fa-mobile-screen-button"></i></h1>
                 <p class="fs-3"> <span class="text-danger">Opps!</span> Your device is too small.</p>
                 <p class="lead">Your device is too small for this page.</p>
+                <button class="btn btn-primary">Back to the Homepage</button>
             </div>
         </div>
+        <script src="../assets/js/settings.js"></script>
+        <script>
+            document.querySelector("button").addEventListener("click", function () {
+                window.location = HOME;
+            });
+        </script>
     </body>
 </html>
