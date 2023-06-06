@@ -13,8 +13,6 @@ const CANVAS_WIDTH_RATION = 0.7; // The width of the canvas is 70% of the page w
 const CANVAS_HEIGHT_RATION = 0.5; // The height of the canvas is 60% of the page width
 
 $(document).ready(function () {
-
-  /* Definition of the modelPreview */
   const modelPreview = new modelPreviewManager('model-preview');
 
   /* Resizing of the canvas based on the width of the container and verify that the device is not too small */
@@ -46,7 +44,7 @@ $(document).ready(function () {
     })
   })();
 
-  /* If the number of models available is higher than one show the button to go to index.html*/
+  /* If the number of models available is higher than one show the button to go to the home page otherwise hide it */
   let verifyNumberOfModels = function () {
     $.ajax({
       url: API_ENDPOINTS.model.list.url,
@@ -104,7 +102,8 @@ $(document).ready(function () {
       $("#texture-selection-row .need-validation").removeClass('need-validation is-valid');
       $("#texture-selection-row div").not(".texture-input-method").addClass('need-validation col-12').prop('selectedIndex',0);
       $(".texture-input-method").hide(); /* Hide all the texture inputs (they will be shown when an input method has been chosen) */
-      $("#texture-image, #texture-color").val("#ffffff"); /* Reset the content */
+      $("#texture-image").val(""); /* Reset the content */
+      $("#texture-color").val("#ffffff"); /* Reset the content */
     }
     else {
       $("#texture-selection-row, #model-preview-row").addClass('hide');
@@ -222,7 +221,11 @@ $(document).ready(function () {
   /* ###### Upload code ###### */
   /* Upload data to the server */
   $("#upload").click(function () {
+    /* Modify the button to show that it's loading */
+    $(this).prop('disabled', true);
+    $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
 
+    /* Take a screenshot of the model and save the camera informations */
     let cameraInfo = modelPreview.captureScreenshot();
     let modelWithTexturePreview = cameraInfo.img;
     delete cameraInfo.img;
@@ -256,65 +259,91 @@ $(document).ready(function () {
       contentType: false,
       cache: false,
       success: function (data) {
-        alertBanner("The model has been uploaded successfully", true);
-        $("#modelNameInput, #modelFileInput, #texture-image, #texture-color").val("");
-        $("#texture-selection-row, #model-preview-row").addClass('hide');
-        $("#upload").hide();
-        $("#texture-selection-row .need-validation").removeClass('need-validation is-valid');
-        $("#texture-selection-row div").not(".texture-input-method").addClass('need-validation col-12').prop('selectedIndex',0);
-        $(".texture-input-method").hide();
-        $("#selectTextureInputMethod").val($("#selectTextureInputMethod option:first").val());
-        verifyNumberOfModels();
         notifyNewModel();
       },
       error: function (response) {
         const jsonResponse = JSON.parse(response.responseText);
         if (jsonResponse.errorID)
-          alertBanner(jsonResponse.message+"<br>Tracking error: "+jsonResponse.errorID, false);
+          alertBanner(jsonResponse.message+" - Tracking error: "+jsonResponse.errorID, false);
         else
           alertBanner(jsonResponse.message, false);
       }
     });
   });
-})
 
-
-/* Websocket implementation */
-let socket = new WebSocket(WEBSOCKET_DOMAIN);
-let retries_counter = 0;
-socket.addEventListener('open', function (event) {
-  retries_counter = 0;
-  console.log("Websocket connection established");
-});
-socket.addEventListener('close', function (event) {
-  if(retries_counter < MAX_RETRIES) {
-    retries_counter++;
-    setTimeout(function(){ 
-      socket = new WebSocket(WEBSOCKET_DOMAIN); 
-    }, 5000);
-  }
-});
-socket.addEventListener('error', function (event) {
-  saveError("Websocket connection error");
-  window.location.href = ERROR_SERVER;
-});
-socket.addEventListener('message', function (event) {
-  let message = JSON.parse(event.data);
-  if (message.type === "new-model")
+  /* Function used to clean all the inputs */
+  let cleanPreviousInput = function() {
+    alertBanner("The model has been uploaded successfully", true);
+    $("#modelNameInput, #modelFileInput, #texture-image, #texture-color").val("");
+    $("#texture-selection-row, #model-preview-row").addClass('hide');
+    $("#upload").hide();
+    $("#texture-selection-row .need-validation").removeClass('need-validation is-valid');
+    $("#texture-selection-row div").not(".texture-input-method").addClass('need-validation col-12').prop('selectedIndex',0);
+    $(".texture-input-method").hide();
+    $("#selectTextureInputMethod").val($("#selectTextureInputMethod option:first").val());
+    $("#upload").prop('disabled', false);
+    $("#upload").html('Upload');
     verifyNumberOfModels();
-});
-let notifyNewModel = function() {
-  socket.send(JSON.stringify({type: "new-model" }));
-}
+  }
 
-/* This function can be used to save into cache the errors */
-function saveError(errorText) {
-  const timeNow = new Date(Date.now()).toLocaleString();
-  const page_name = window.location.pathname.split("/").pop();
-  errorText = timeNow + " - " + errorText + " - " + page_name;
-  const error = sessionStorage.getItem("error");
-  if(error !== null)
-    sessionStorage.setItem("error", error + "\n" + errorText);
-  else
+  /* Websocket implementation */
+  let socket = null;
+  let retries_counter = 0;
+  const TIMEOUT_TIME = 5000;
+  let scheduledNotification = false;
+
+  function handleSocketConnection() {
+    socket = new WebSocket(WEBSOCKET_DOMAIN);
+    
+    socket.addEventListener('open', function(event) {
+      retries_counter = 0;
+    });
+
+    socket.addEventListener('close', function(event) {
+      retries_counter++;
+      if (retries_counter <= MAX_RETRIES) {
+        setTimeout(handleSocketConnection, TIMEOUT_TIME);
+      } else {
+        if(scheduledNotification) {
+          alertBanner("The model has been uploaded but no synchronization message has been sent. Please verify the Websocket server and your connection.", false, 'main-alert', true);
+          scheduledNotification = false;
+        } else {
+          alertBanner("I cannot connect to the websocket server. Verify that it is working and your connection.", false, 'main-alert', true);
+        }
+      }
+    });
+
+    socket.addEventListener('message', function (event) {
+      let message = JSON.parse(event.data);
+      if (message.type === "new-model")
+        verifyNumberOfModels();
+    });  
+  }
+  handleSocketConnection();
+
+  let notifyNewModel = function() {
+    if (retries_counter < MAX_RETRIES) {
+      scheduledNotification = true;
+      if (socket.readyState == 1) {
+        scheduledNotification = false;
+        socket.send(JSON.stringify({type: "new-model" }));
+        cleanPreviousInput();
+      } else {
+        setTimeout(notifyNewModel, TIMEOUT_TIME);
+      }
+    }
+  }
+
+  /* This function can be used to save into cache the errors */
+  function saveError(errorText) {
+    const timeNow = new Date(Date.now()).toLocaleString();
+    const page_name = window.location.pathname.split("/").pop();
+    errorText = timeNow + " - " + errorText + " - " + page_name;
+    const error = sessionStorage.getItem("error");
+    if(error !== null)
+      sessionStorage.setItem("error", error + "\n" + errorText);
+    else
     sessionStorage.setItem("error", errorText);
-}
+  }
+
+})

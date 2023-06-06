@@ -57,3 +57,6 @@ input[type="color"] {
 #upload {
     display: none;
 }
+.upload-button {
+    margin-top: 20px;
+}
