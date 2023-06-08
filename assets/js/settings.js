@@ -18,7 +18,7 @@ let WEBSOCKET_DOMAIN = null;
 $.ajax({
     'async': false,
     'global': false,
-    'url': "assets/js/settings.json",
+    'url': "settings.json",
     'dataType': "json",
     'success': function (data) {
       if (!("SELF_DOMAIN" in data && "API_DOMAIN" in data && "MODELS_FOLDER" in data && "WEBSOCKET_DOMAIN" in data)) {
