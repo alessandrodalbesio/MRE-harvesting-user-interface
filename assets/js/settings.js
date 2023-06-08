@@ -1,8 +1,37 @@
-/* Definition of the domains of the application */
-const SELF_DOMAIN = "http://virtualenv.epfl.ch/";
-const API_DOMAIN = "http://virtualenv.epfl.ch/api";
-const MODELS_FOLDER = "http://virtualenv.epfl.ch/models/";
-const WEBSOCKET_DOMAIN = "ws://virtualenv.epfl.ch/ws";
+/* Function to save errors in cache */
+function saveError(errorText) {
+  const timeNow = new Date(Date.now()).toLocaleString();
+  const page_name = window.location.pathname.split("/").pop();
+  errorText = timeNow + " - " + errorText + " - " + page_name;
+  const error = sessionStorage.getItem("error");
+  if(error !== null)
+    sessionStorage.setItem("error", error + "\n" + errorText);
+  else
+  sessionStorage.setItem("error", errorText);
+}
+
+/* Get the settings */
+let SELF_DOMAIN = null;
+let API_DOMAIN = null;
+let MODELS_FOLDER = null;
+let WEBSOCKET_DOMAIN = null;
+$.ajax({
+    'async': false,
+    'global': false,
+    'url': "assets/js/settings.json",
+    'dataType': "json",
+    'success': function (data) {
+      if (!("SELF_DOMAIN" in data && "API_DOMAIN" in data && "MODELS_FOLDER" in data && "WEBSOCKET_DOMAIN" in data)) {
+        console.error("The settings.json file is not well formatted");
+        saveError("The settings.json file is not well formatted");
+      } else {
+        SELF_DOMAIN = data["SELF_DOMAIN"];
+        API_DOMAIN = data["API_DOMAIN"];
+        MODELS_FOLDER = data["MODELS_FOLDER"];
+        WEBSOCKET_DOMAIN = data["WEBSOCKET_DOMAIN"];
+      }
+    }
+});
 
 /* Define user interface pages */
 const HOME = SELF_DOMAIN + 'index.html';
@@ -58,12 +87,13 @@ const API_ENDPOINTS = {
     }
   };
 
+/* Websockets settings*/
+const MAX_RETRIES = 5;
+const TIMEOUT_BETWEEN_RETRIES = 5000;
+
 /* Define error pages URLS */
 const DEVICE_IS_SMALL = SELF_DOMAIN + 'error-pages/device-is-small.html';
 const MODEL_NOT_FOUND = SELF_DOMAIN + 'error-pages/model-not-found.html';
 const NOT_COMPATIBLE = SELF_DOMAIN + 'error-pages/not-compatible.html';
 const NO_JS = SELF_DOMAIN + 'error-pages/no-js.html';
 const ERROR_SERVER = SELF_DOMAIN + 'error-pages/500.html';
-
-/* Websockets settings*/
-const MAX_RETRIES = 5;
