@@ -1,11 +1,12 @@
 import { modelPreviewManager, modelPreviewManagerTextureUpload } from "modelPreview";
 
-/* Constant variables that are retrieved from the server */
+/**** Constant variables that are retrieved from the server ****/
 let MODEL_FILE_NAME = null
 let MODEL_TEXTURE_PREVIEW_NAME = null
 let MODEL_TEXTURE_PREVIEW_FORMAT = null
 
-/* Data variables */
+
+/***** Data variables *****/
 let models = []; /* List of all the models */
 let modelPreview = null; /* Object that will manage the creation of the models preview when a new texture is uploaded */
 let modelLoaded = false; /* If the model is loaded in the 3D viewer */
@@ -14,169 +15,197 @@ let openModelSelectedModel = null; /* The model that is currently opened in the 
 let lockedModels = []; /* List of the models that are locked by other users */
 let selectedElement = {  modelID: null,  IDTexture: null };
 
-/*** Websocket implementation ***/
-const socket = new WebSocket(WEBSOCKET_DOMAIN);
 
-/* Message manager */
-socket.addEventListener('message', function(event) {
-  const message = JSON.parse(event.data);
-  const type = message.type;
-  const data = message.data;
 
-  if (type === 'new-model') {
-    /* Get the list of all the models and find the ones that are not in models */
-    $.ajax({
-      url: API_ENDPOINTS.model.list.url,
-      type: API_ENDPOINTS.model.list.method,
-      success: function (data) {
-        data = JSON.parse(data);
-        data.forEach((element) => {
-          if (models.findIndex((item) => item.IDModel === element.IDModel) === -1) {
-            models.push(element);
-            addModelToDom(element);
-          }
-        });
-      }, error: function(err) {
-        window.location.href = ERROR_SERVER;
-      }
-    });
-  } else if (type == 'update-model') {
-    let IDModel = data.IDModel;
-    $.ajax({
-      url: API_ENDPOINTS.model.get.url + IDModel,
-      type: API_ENDPOINTS.model.get.method,
-      success: function (data) {
-        data = JSON.parse(data);
-        
-        /* Update model in models */
-        let index = models.findIndex((item) => item.IDModel === IDModel);
-        models[index] = data;
-  
-        /* Update model in DOM */
-        updateModelnameDOM(IDModel, data.modelName);
-        
-        /* If the selected model is the updated one, update the banner */
-        if (openModelID == IDModel)
-          $("#modelNameBanner").val(data.modelName);
-      }, error: function(err) {
-        window.location.href = ERROR_SERVER;
-      }
-    });
-  } else if (type == 'delete-model') {
-    let IDModel = data.IDModel;
 
-    /* Remove model from models */
-    let index = models.findIndex((item) => item.IDModel === IDModel);
-    models.splice(index, 1);
-  
-    /* Remove model from DOM */
-    removeModelFromDom(IDModel);
-  } else if (type == 'new-texture') {
-    /* Manage a new texture addition */
-    let IDModel = data.IDModel;
-    $.ajax({
-      url: API_ENDPOINTS.model.get.url + data.IDModel,
-      type: API_ENDPOINTS.model.get.method,
-      success: function (data) {
-        data = JSON.parse(data);
 
-        /* Update model in models */
-        let index = models.findIndex((item) => item.IDModel === IDModel);
-        models[index] = data;
-        
-        /* If the banner is open, update the banner */
-        if (openModelID == IDModel)
-          refreshModelBannerContent();
-      }, error: function(err) {
-        window.location.href = ERROR_SERVER;
-      }
-    });
-  } else if (type == 'delete-texture') {
-    let IDModel = data.IDModel;
-    let IDTexture = data.IDTexture;
-    let model = models.find((item) => item.IDModel === IDModel);
-    let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
-    model.textures.splice(index, 1);
+/***** Websocket implementation *****/
+let socket = null;
+let retries_counter = 0;
+
+function handleSocketConnection() {
+  socket = new WebSocket(WEBSOCKET_DOMAIN);
+  socket.addEventListener('message', function(event) {
+    const message = JSON.parse(event.data);
+    const type = message.type;
+    const data = message.data;
+
+    if (type === 'new-model') {
+      /* Get the list of all the models and find the ones that are not in models */
+      $.ajax({
+        url: API_ENDPOINTS.model.list.url,
+        type: API_ENDPOINTS.model.list.method,
+        success: function (data) {
+          data = JSON.parse(data);
+          data.forEach((element) => {
+            if (models.findIndex((item) => item.IDModel === element.IDModel) === -1) {
+              models.push(element);
+              addModelToDom(element);
+            }
+          });
+        }, error: function(error) {
+          saveError(error.status + " " + error.statusText);
+          window.location.href = ERROR_SERVER;
+        }
+      });
+    } else if (type == 'update-model') {
+      let IDModel = data.IDModel;
+      $.ajax({
+        url: API_ENDPOINTS.model.get.url + IDModel,
+        type: API_ENDPOINTS.model.get.method,
+        success: function (data) {
+          data = JSON.parse(data);
+          
+          /* Update model in models */
+          let index = models.findIndex((item) => item.IDModel === IDModel);
+          models[index] = data;
     
-    /* Update model in models */
-    let indexModel = models.findIndex((item) => item.IDModel === IDModel);
-    models[indexModel] = model;
-    
-    if (openModelID == IDModel)
-      refreshModelBannerContent();
-  } else if(type == 'texture-set-default') {
-    let IDModel = data.IDModel;
-    $.ajax({
-      url: API_ENDPOINTS.model.get.url + IDModel,
-      type: API_ENDPOINTS.model.get.method,
-      success: function (data) {
-        data = JSON.parse(data);
-    
-        /* Update model in models */
-        let index = models.findIndex((item) => item.IDModel === IDModel);
-        models[index] = data;
-    
-        /* Refresh the default texture in the DOM */
-        changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
-    
-        /* If the banner is open, update the banner */
-        if (openModelID == IDModel)
-          refreshModelBannerContent();
-      }, error: function(err) {
-        window.location.href = ERROR_SERVER;
-      }
-    })
-  } else if(type == 'lock-model') {
-    let IDModel = data.IDModel;
-    let model = models.find((item) => item.IDModel === IDModel);
-    lockedModels.push(model);
-  } else if(type == 'unlock-model') {
-    let IDModel = data.IDModel;
-    let model = models.find((item) => item.IDModel === IDModel);
-    lockedModels.splice(lockedModels.indexOf(model), 1);
-  } else if(type == 'set-active-model') {
-    selectElement(data.IDModel, data.IDTexture, false);
-  } else if(type == 'unset-active-model') {
-    unsetSelected(false);
-  } else if(type == 'refresh') {
-    if (openModelID !== null)
-      notifyModelLock(openModelID);
-    if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
-      notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
-  }
-});
+          /* Update model in DOM */
+          updateModelnameDOM(IDModel, data.modelName);
+          
+          /* If the selected model is the updated one, update the banner */
+          if (openModelID == IDModel)
+            $("#modelNameBanner").val(data.modelName);
+        }, error: function(error) {
+          saveError(error.status + " " + error.statusText);
+          window.location.href = ERROR_SERVER;
+        }
+      });
+    } else if (type == 'delete-model') {
+      let IDModel = data.IDModel;
 
-socket.addEventListener('open', function() {
-  console.log('WebSocket connection established.');
-});
+      /* Remove model from models */
+      let index = models.findIndex((item) => item.IDModel === IDModel);
+      models.splice(index, 1);
+    
+      /* Remove model from DOM */
+      removeModelFromDom(IDModel);
+    } else if (type == 'new-texture') {
+      /* Manage a new texture addition */
+      let IDModel = data.IDModel;
+      $.ajax({
+        url: API_ENDPOINTS.model.get.url + data.IDModel,
+        type: API_ENDPOINTS.model.get.method,
+        success: function (data) {
+          data = JSON.parse(data);
 
-socket.addEventListener('close', function() {
-  console.log('WebSocket connection closed.');
-});
+          /* Update model in models */
+          let index = models.findIndex((item) => item.IDModel === IDModel);
+          models[index] = data;
+          
+          /* If the banner is open, update the banner */
+          if (openModelID == IDModel)
+            refreshModelBannerContent();
+        }, error: function(error) {
+          saveError(error.status + " " + error.statusText);
+          window.location.href = ERROR_SERVER;
+        }
+      });
+    } else if (type == 'delete-texture') {
+      let IDModel = data.IDModel;
+      let IDTexture = data.IDTexture;
+      let model = models.find((item) => item.IDModel === IDModel);
+      let index = model.textures.findIndex((item) => item.IDTexture === IDTexture);
+      model.textures.splice(index, 1);
+      
+      /* Update model in models */
+      let indexModel = models.findIndex((item) => item.IDModel === IDModel);
+      models[indexModel] = model;
+      
+      if (openModelID == IDModel)
+        refreshModelBannerContent();
+    } else if(type == 'texture-set-default') {
+      let IDModel = data.IDModel;
+      $.ajax({
+        url: API_ENDPOINTS.model.get.url + IDModel,
+        type: API_ENDPOINTS.model.get.method,
+        success: function (data) {
+          data = JSON.parse(data);
+      
+          /* Update model in models */
+          let index = models.findIndex((item) => item.IDModel === IDModel);
+          models[index] = data;
+      
+          /* Refresh the default texture in the DOM */
+          changeDefaultTextureDOMUpdate(IDModel, data.defaultTexture.textureID);
+      
+          /* If the banner is open, update the banner */
+          if (openModelID == IDModel)
+            refreshModelBannerContent();
+        }, error: function(error) {
+          saveError(error.status + " " + error.statusText);
+          window.location.href = ERROR_SERVER;
+        }
+      })
+    } else if(type == 'lock-model') {
+      let IDModel = data.IDModel;
+      let model = models.find((item) => item.IDModel === IDModel);
+      lockedModels.push(model);
+    } else if(type == 'unlock-model') {
+      let IDModel = data.IDModel;
+      let model = models.find((item) => item.IDModel === IDModel);
+      lockedModels.splice(lockedModels.indexOf(model), 1);
+    } else if(type == 'set-active-model') {
+      selectElement(data.IDModel, data.IDTexture, false);
+    } else if(type == 'unset-active-model') {
+      unsetSelected(false);
+    } else if(type == 'refresh') {
+      if (openModelID !== null)
+        notifyModelLock(openModelID);
+      if (selectedElement.modelID !== null && selectedElement.IDTexture !== null)
+        notifySetActiveModel(selectedElement.IDModel, selectedElement.IDTexture);
+    }
+  });
 
-socket.addEventListener('error', function(error) {
-  console.error('WebSocket error:', error);
-});
+  socket.addEventListener('open', function() {
+    if (retries_counter > 0)
+      window.location.reload();
+  });
 
-let sendWebsocketMessage = function(message) {
-  socket.send(JSON.stringify(message));
+  socket.addEventListener('close', function() {
+    closeModelbanner();
+    if (retries_counter < MAX_RETRIES) {
+      retries_counter++;
+      alertBanner("Unable to connect with the websocket server. Attempt "+retries_counter+" / "+MAX_RETRIES, false, "main-alert", true);
+      setTimeout(() => {
+        handleSocketConnection();
+      }, TIMEOUT_BETWEEN_RETRIES);
+    } else {
+      alertBanner("Unable to connect with the websocket server. Please verify that the websocket server is reacheable.", false, "main-alert", true);
+    }
+  });
+}
+handleSocketConnection();
+
+let isSocketConnected = function() {
+  return socket.readyState == 1;
 }
 
+let sendWebsocketMessage = function(message) {
+  if (isSocketConnected())
+    socket.send(JSON.stringify(message));
+}
 
-/*** JS Implementation  ***/
-
-/* Confirm banner */
+/***** Confirm banner *****/
 function requestConfirm(message, callback, ...args) {
+  if (!isSocketConnected())
+    return;
   $("#confirmModal .modal-body").html(message);
   /* Toogle a bootstrap modal */
   $("#confirmModal").modal("toggle");     
   $("#confirmButtonConfirmModal").click(() => {
     callback(args);
     $("#confirmModal").modal("toggle");
+    $("#confirmButtonConfirmModal").off("click");
   });
 }
 
-/* Search bar */
+
+
+
+
+
+/***** Search bar *****/
 $("#searchBar input").keyup((e) => {
   $(".model")
     .show()
@@ -191,7 +220,11 @@ $("#searchBar input").keyup((e) => {
     .hide();
 });
 
-/* JQUERY management */
+
+
+
+
+/***** JQUERY *****/
 $(document).ready(function () {
   /* Load settings */
   (function () {
@@ -214,7 +247,8 @@ $(document).ready(function () {
             models.forEach((element) => { addModelToDom(element) });
             modelPreview = new modelPreviewManagerTextureUpload("imagePreviewForTextureCreation");
           },
-          error: function () {
+          error: function (error) {
+            saveError(error.status + " " + error.statusText);
             window.location.href = ERROR_SERVER;
           }
         });
@@ -227,13 +261,16 @@ $(document).ready(function () {
 
   /* Add event listener */
   $("#modelNameBanner").on("change", function() {
+    if (!isSocketConnected())
+      return;
     let newName = $(this).val();
     updateModelname(openModelID, newName);
   });
 
   /* Manage model delete */
   $("#deleteModelButton").click(function() {
-
+    if (!isSocketConnected())
+      return;
     requestConfirm(
       `Are you sure you want to delete the model?`,
       deleteModel,
@@ -243,6 +280,8 @@ $(document).ready(function () {
 
   /* Select texture input method */
   $("#selectTextureInputMethod").change(function () {
+    if (!isSocketConnected())
+      return;
     $("#uploadNewTextureButton").removeClass("d-none");
     if ($(this).val() === "image") {
       $("#textureInputMethodImage").removeClass("d-none");
@@ -256,16 +295,14 @@ $(document).ready(function () {
   });
 
   $("#uploadNewTextureButton").click(function () {
+    if (!isSocketConnected())
+      return;
+    loadingButton();
     if ($("#selectTextureInputMethod").val() === "image") {
       createTextureFromImage($("#textureInputMethodImage input")[0].files[0]);
     } else if ($("#selectTextureInputMethod").val() === "color") {
       createTextureFromColor($("#textureInputMethodColor input").val());
     }
-    /* Reset the input */
-    $("#selectTextureInputMethod").val("default");
-    $("#textureInputMethodImage input").val("");
-    $("#textureInputMethodColor input").val("");
-    $("#textureInputMethodImage, #textureInputMethodColor, #uploadNewTextureButton").addClass("d-none");
   });
 
 
@@ -275,7 +312,35 @@ $(document).ready(function () {
 
 
 
-/* Socket connection */
+
+
+/***** Upload management *****/
+let loadingButton = function() {
+  $("#uploadNewTextureButton").prop('disabled', true);
+  $("#uploadNewTextureButton").html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...');
+}
+let resetButton = function() {
+  $("#uploadNewTextureButton").prop('disabled', false);
+  $("#uploadNewTextureButton").html('Upload');
+}
+let errorButton = function() {
+  $("#uploadNewTextureButton").prop('disabled', false);
+  $("#uploadNewTextureButton").html('Error');
+  setTimeout(() => { resetForm(); }, 1000);
+}
+let resetForm = function() {
+  $("#selectTextureInputMethod").val("default");
+  $("#textureInputMethodImage input").val("");
+  $("#textureInputMethodColor input").val("");
+  $("#textureInputMethodImage, #textureInputMethodColor, #uploadNewTextureButton").addClass("d-none");
+  resetButton();
+}
+
+
+
+
+
+/***** Model insertion *****/
 let addModelToDom = function (model) {
   let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
   let imgSelectedTexture = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "."+model.defaultTexture.textureExtension;
@@ -291,7 +356,11 @@ let addModelToDom = function (model) {
     $(".models > .row > div[data-model_id='" + model.IDModel + "']").on("click", () => { openModelBanner(model.IDModel) });
 };
 
-/* Model update */
+
+
+
+
+/***** Model update *****/
 let notifyModelUpdate = function(IDModel) {
   sendWebsocketMessage({ type: 'update-model', data: { IDModel: IDModel } });
 }
@@ -328,6 +397,7 @@ let updateModelname = function(modelID, modelName) {
       notifyModelUpdate(modelID);
     },
     error: function (error) {
+      saveError(error.status + " " + error.statusText);
       let textError = JSON.parse(error.responseText);
       alertBanner("Error updating the model name: " + textError.message, false, 'banner-alert');
     }
@@ -335,7 +405,10 @@ let updateModelname = function(modelID, modelName) {
 }
 
 
-/* Model delete */
+
+
+
+/***** Model delete *****/
 let notifyModelDeletion = function(IDModel) {
   sendWebsocketMessage({ type: 'delete-model', data: { IDModel: IDModel } });
 }
@@ -371,24 +444,20 @@ let deleteModel = function (params) {
       notifyModelDeletion(modelID);
     },
     error: function (error) {
+      saveError(error.status + " " + error.statusText);
       let textError = JSON.parse(error.responseText);
       alertBanner("Error deleting the model: " + textError.message, false, 'banner-alert');
     }
   });
 };
 
-/* Texture creation */
+
+
+
+
+/***** Texture creation *****/
 let notifyTextureAddition = function(IDModel) {
   sendWebsocketMessage({ type: 'new-texture', data: { IDModel: IDModel } });
-}
-
-let updateDefaultDOMModelPreview = function() {
-  $(".model").each(function () {
-    let modelID = $(this).data("model_id");
-    let model = models.find((item) => item.IDModel === modelID);
-    let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
-    $(this).find("img").attr("src", imgPreview);
-  });
 }
 
 let addTextureDOM = function (texture) {
@@ -428,6 +497,17 @@ let addTextureDOM = function (texture) {
   });
 };
 
+/* 
+The implementation of the upload for new textures is a little bit intricated and it's due to the implementation of the external modules (that are not async but rather they use callback functions). 
+The workaround is this:
+  - Firstly load the model in the preview scene (this is needed to be sure that the model has been loaded before applying the texture). The model will be unloaded after the banner is closed.
+  - Then when the model will be loaded a callback function will be called (textureLoadingCallback). 
+    Here we have two cases:
+      - If the texture to be uploaded is a color the callback function called from textureLoadingCallback will be createTextureFromColor
+      - If the texture to be uploaded is an image the callback function called from textureLoadingCallback will be applyTextureToModel
+        After applying the texture to the model the callback function will be the same function as the first called (so createTextureFromImage)
+This callback mechanism is managed by the external module (modelPreview.js) and it's needed to be sure that the model has been loaded before applying the texture.
+*/
 let textureLoadingCallback = function(callback, param) {
   /* Needed to be sure that the model preview has been loaded */
   modelLoaded = true;
@@ -440,7 +520,6 @@ let createTextureFromColor = function(color) {
     let selectedModelUrl = MODELS_FOLDER + openModelID + "/"+MODEL_FILE_NAME+"."+selectedModel.modelExtension;
     modelPreview.setSceneParameters(selectedModel.cameraInformations); // Set the camera informations
     modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, createTextureFromColor, color);
-    /*  What this function does is basically call back this function only after the model has been loaded (otherwise we cannot apply the texture for the preview). */
   }
   else {
     /* Apply the texture to the model preview */
@@ -469,26 +548,30 @@ let createTextureFromColor = function(color) {
         addTextureDOM(parsedData);
         notifyTextureAddition(openModelID);
         alertBanner('Texture created successfully', true, 'banner-alert');
+        resetForm();
       },
       error: function (error) {
+        saveError(error.status + " " + error.statusText);
         let textError = JSON.parse(error.responseText);
         alertBanner("Error creating the texture: " + textError.message, false, 'banner-alert');
+        errorButton();
       }
     });
   }
 }
 
+let applyTextureToModel = function(image) {
+  modelPreview.applyTextureToModelFromImage(URL.createObjectURL(image), createTextureFromImage, image);
+}
+
 let createTextureFromImage = function(image) {
-  /* This function is basically the same as createTextureFromColor */
   if(!modelLoaded) {
     let selectedModel = models.find((item) => item.IDModel === openModelID);
     let selectedModelUrl = MODELS_FOLDER + openModelID + "/"+MODEL_FILE_NAME+"."+selectedModel.modelExtension;
     modelPreview.setSceneParameters(selectedModel.cameraInformations);
-    modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, createTextureFromImage, image);
+    modelPreview.loadModelInScene(selectedModelUrl, textureLoadingCallback, applyTextureToModel, image);
   }
   else {
-    modelPreview.applyTextureToModelFromImage(URL.createObjectURL(image));
-
     let formData = new FormData();
     formData.append("modelID", openModelID);
     formData.append("textureImage", image);
@@ -511,18 +594,23 @@ let createTextureFromImage = function(image) {
         addTextureDOM(parsedData);
         notifyTextureAddition(openModelID);
         alertBanner('Texture created successfully', true, 'banner-alert');
+        resetForm();
       },
       error: function (error) {
+        saveError(error.status + " " + error.statusText);
         let textError = JSON.parse(error.responseText);
         alertBanner("Error creating the texture: " + textError.message, false, 'banner-alert');
+        errorButton();
       }
     });
   }
 }
 
 
-/* Texture delete */
 
+
+
+/***** Texture delete *****/
 let removeTextureFromDom = function (textureID) {
   $(`.banner .body .texture[data-id_texture="${textureID}"]`).remove();
 }
@@ -558,6 +646,7 @@ let deleteTexture = function(textureID) {
       alertBanner('Texture deleted successfully', true, 'banner-alert');
     },
     error: function (error) {
+      saveError(error.status + " " + error.statusText);
       let textError = JSON.parse(error.responseText);
       alertBanner("Error deleting the texture: " + textError.message, false, 'banner-alert');
     }
@@ -568,9 +657,22 @@ let notifyTextureDeletion = function(IDModel, IDTexture) {
   sendWebsocketMessage({ type: 'delete-texture', data: { IDModel: IDModel, IDTexture: IDTexture } });
 }
 
-/* Default texture */
+
+
+
+
+/***** Default texture *****/
 let notifyTextureSetDefault = function(IDModel, IDTexture) {
   sendWebsocketMessage({ type: 'set-default-texture', data: { IDModel: IDModel, IDTexture: IDTexture } });
+}
+
+let updateDefaultDOMModelPreview = function() {
+  $(".model").each(function () {
+    let modelID = $(this).data("model_id");
+    let model = models.find((item) => item.IDModel === modelID);
+    let imgPreview = MODELS_FOLDER + model.IDModel + "/" + model.defaultTexture.textureID + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;
+    $(this).find("img").attr("src", imgPreview);
+  });
 }
 
 let changeDefaultTextureDOMUpdate = function(modelID, textureID) {
@@ -605,13 +707,19 @@ let changeDefaultTexture = function(textureID) {
       sendWebsocketMessage({type: 'texture-set-default', data: {IDModel: modelID}});
     },
     error: function (error) {
+      saveError(error.status + " " + error.statusText);
       let textError = JSON.parse(error.responseText);
       alertBanner("Error changing the default texture: " + textError.message, false, 'banner-alert');
     }
   });
 }
 
-/* Banner management */
+
+
+
+
+/***** Model Banner Management *****/
+/* Locking mechanism. It is used to avoid other users to delete the model while it is being edited */
 let isModelLocked = function(IDModel) {
   return lockedModels.find((item) => item.IDModel === IDModel) !== undefined;
 }
@@ -623,6 +731,8 @@ let notifyModelUnlock = function() {
 }
 
 function openModelBanner(modelID) {
+  if (!isSocketConnected())
+    return;
   /* Save selected model info for later use */
   let selectedModel = models.find((item) => item.IDModel === modelID);  
   openModelID = modelID;
@@ -657,6 +767,7 @@ function closeModelbanner() {
   $("#bannerOverlay, .close-banner").off("click");
 }
 
+/* Function used it the case of an open banner and an update into the model (name or textures) */
 function refreshModelBannerContent() {
   /* Save selected model info for later use */
   let selectedModel = models.find((item) => item.IDModel === openModelID);  
@@ -674,7 +785,10 @@ function refreshModelBannerContent() {
 }
 
 
-/* Active model management */
+
+
+
+/***** Active model management *****/
 let notifySetActiveModel = function() {
   sendWebsocketMessage({ type: 'set-active-model', data: { IDModel: getSelectedModelID(), IDTexture: getSelectedTextureID() } });
 }
@@ -694,9 +808,12 @@ let isSelected = function(modelID, IDTexture) {
   return selectedElement.modelID === modelID && selectedElement.IDTexture === IDTexture;
 }
 
+/* In both selectElement and unsetSelected the isOrigin parameters indicate if the selection of the element has been done in the current user interface (isOrigin = true) or not (isOrigin = false)
+This parameter is very important to avoid notification loops between the different users of the application */ 
 let selectElement = function(modelID, IDTexture, isOrigin = true) {
   unsetSelected(false);
 
+  /* Manage the UI */
   let model = models.find((item) => item.IDModel === modelID);  
   $(`.models > .row > div[data-model_id="${modelID}"]`).addClass("active");
   let modelPreviewURL = MODELS_FOLDER + modelID + "/" + IDTexture + "-"+MODEL_TEXTURE_PREVIEW_NAME+"."+MODEL_TEXTURE_PREVIEW_FORMAT;

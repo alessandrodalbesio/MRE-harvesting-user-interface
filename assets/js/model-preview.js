@@ -3,13 +3,9 @@ import { OBJLoader } from "threeOBJLoader"; /* Import the OBJLoader module */
 import { OrbitControls } from "threeOrbitControls"; /* Import the OrbitControls module */
 
 /* Default values */
-const DEFAULT_AMBIENT_LIGHT = false;
-const DEFAULT_SHADOWS_ACTIVE = true;
-const DEFAULT_GROUND_COLOR = '#e1e1e1';
-const DEFAULT_GROUND_SIZE = 25;
-const DEFAULT_GROUND_VISIBLE = true;
 const DEFAULT_BACKGROUND_COLOR = '#000000';
 const DEFAULT_OBJECT_COLOR = '#ffffff';
+const DEFAULT_LIGHT_COLOR = 0xFFFFFF;
 
 /* Utilities functions (not exported) */
 function checkDimensionValidity(dimension, dimensionName) {
@@ -51,55 +47,24 @@ class modelPreviewManager {
 
 
         /* Set up the lights */
-        const lightColor = 0xFFFFFF;
-        this.lightAmbient = new THREE.AmbientLight(lightColor, 0.5);
-        this.lightDirectional = new THREE.DirectionalLight(0xffffff, 1);
+        this.lightDirectional = new THREE.DirectionalLight(DEFAULT_LIGHT_COLOR, 1);
         this.lightDirectional.position.set(5, 10, 8);
-        this.lightDirectional.castShadow = DEFAULT_SHADOWS_ACTIVE;
         this.lightDirectional.shadow.mapSize = new THREE.Vector2(2048, 2048);
         this.lightDirectional.shadow.camera.near = 0.5;
         this.lightDirectional.shadow.camera.far = 500;
-
-        if (DEFAULT_AMBIENT_LIGHT)
-            this.scene.add(this.lightAmbient);
-        else
-            this.scene.add(this.lightDirectional);
-        this.ambientLightInScene = DEFAULT_AMBIENT_LIGHT;
+        this.scene.add(this.lightDirectional);
 
         /* Set up the camera*/
-        this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
+        this.camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
         this.camera.position.set(0, 5, 10);
-
 
         /* Define controller for rotating around objects and zooming */
         this.controls = new OrbitControls(this.camera, canvas);
         this.controls.enableZoom = true; /* enable zooming */
-        this.controls.minPolarAngle = 0;
+        this.controls.minPolarAngle = -Math.PI / 2 + Math.PI / 16;
         this.controls.maxPolarAngle = Math.PI / 2 - Math.PI / 16;
         this.controls.enablePan = false;
 
-
-        /* Define the ground */
-        this.ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(DEFAULT_GROUND_SIZE, DEFAULT_GROUND_SIZE),
-            new THREE.MeshStandardMaterial({
-                color: DEFAULT_GROUND_COLOR,
-            })
-        );
-        this.ground.castShadow = false;
-        this.ground.receiveShadow = true;
-        this.ground.rotation.x = -Math.PI / 2;
-        this.ground.visible = DEFAULT_GROUND_VISIBLE;
-        this.scene.add(this.ground);
-
-        /*
-        if(!DEFAULT_GROUND_VISIBLE) {
-            const size = 10;
-            const divisions = 10;
-            const gridHelper = new THREE.GridHelper( size, divisions );
-            this.scene.add( gridHelper );
-        }
-        */
 
         /* Define the model reference and put it to null */
         this.model = null;
@@ -195,10 +160,6 @@ class modelPreviewManager {
             'cameraRotationY': this.camera.rotation.y,
             'cameraRotationZ': this.camera.rotation.z,
             'cameraZoom': this.camera.zoom,
-            'groundColor': rgbToHex(this.ground.material.color),
-            'groundVisibility': this.ground.visible,
-            'ambientLightInScene': this.ambientLightInScene,
-            'shadows': this.lightDirectional.castShadow,
             'backgroundColor': rgbToHex(rendererColor),
         }
     }
@@ -215,7 +176,7 @@ class modelPreviewManager {
                 var refBox = new THREE.Box3().setFromObject(this.model);
                 var translateVector = new THREE.Vector3(
                     refBox.min.x + (refBox.max.x - refBox.min.x) / 2,
-                    refBox.min.y,
+                    refBox.min.y + (refBox.max.y - refBox.min.y) / 2,
                     refBox.min.z + (refBox.max.z - refBox.min.z) / 2
                 );
                 this.model.traverse((obj) => {
@@ -248,10 +209,6 @@ class modelPreviewManager {
         this.camera.rotation.z = parameters.cameraRotationZ;
         this.camera.zoom = parameters.cameraZoom;
         this.camera.updateProjectionMatrix();
-        this.ground.material.color.set(parameters.groundColor);
-        this.ground.visible = parameters.groundVisibility;
-        this.ambientLightInScene = parameters.ambientLightInScene;
-        this.lightDirectional.castShadow = parameters.shadows;
         this.renderer.setClearColor(parameters.backgroundColor, 1);
         this.reloadLights();
     }
@@ -288,39 +245,8 @@ class modelPreviewManager {
         return true;
     }
 
-    setGroundColor(colorHex) {
-        this.ground.material = new THREE.MeshStandardMaterial({ color: colorHex });
-        return true;
-    }
-
-    toggleGroundVisibility() {
-        this.ground.visible = !this.ground.visible;
-        return true;
-    }
-
-    toggleShadows() {
-        this.lightDirectional.castShadow = !this.lightDirectional.castShadow;
-        return true;
-    }
-
-    changeLightInScene() {
-        if (this.ambientLightInScene) {
-            this.scene.remove(this.lightAmbient);
-            this.scene.add(this.lightDirectional);
-        } else {
-            this.scene.remove(this.lightDirectional);
-            this.scene.add(this.lightAmbient);
-        }
-        this.ambientLightInScene = !this.ambientLightInScene;
-        return true;
-    }
-
     /* Get methods */
-    get defaultGroundColor() { return DEFAULT_GROUND_COLOR }
-    get defaultGroundVisibility() { return DEFAULT_GROUND_VISIBLE }
     get defaultBackgroundColor() { return DEFAULT_BACKGROUND_COLOR }
-    get defaultShadows() { return DEFAULT_SHADOWS_ACTIVE }
-    get defaultAmbientLight() { return DEFAULT_AMBIENT_LIGHT }
     get defaultObjectColor() { return DEFAULT_OBJECT_COLOR }
 }
 class modelPreviewManagerTextureUpload extends modelPreviewManager {
@@ -339,7 +265,7 @@ class modelPreviewManagerTextureUpload extends modelPreviewManager {
                 var refBox = new THREE.Box3().setFromObject(this.model);
                 var translateVector = new THREE.Vector3(
                     refBox.min.x + (refBox.max.x - refBox.min.x) / 2,
-                    refBox.min.y,
+                    refBox.min.y + (refBox.max.y - refBox.min.y) / 2,
                     refBox.min.z + (refBox.max.z - refBox.min.z) / 2
                 );
                 this.model.traverse((obj) => {
@@ -359,6 +285,29 @@ class modelPreviewManagerTextureUpload extends modelPreviewManager {
             (error) => {
                 console.log(error)
                 throw new Error("An error occured while loading the model");
+            }
+        );
+    }
+    applyTextureToModelFromImage(imageURL, callbackFunction, params) {
+        var material = new THREE.MeshStandardMaterial(); // create a material
+
+        new THREE.TextureLoader().load(
+            imageURL,
+            (texture) => {
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.encoding = THREE.sRGBEncoding;
+                material.map = texture;
+                this.model.traverse((obj) => {
+                    if (obj instanceof THREE.Mesh) {
+                        obj.material = material;
+                    }
+                })
+                callbackFunction(params);
+            },
+            function (xhr) { },
+            function (xhr) {
+                console.log('An error happened');
             }
         );
     }
