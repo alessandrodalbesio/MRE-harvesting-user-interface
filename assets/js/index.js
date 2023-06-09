@@ -334,6 +334,7 @@ let resetForm = function() {
   $("#textureInputMethodColor input").val("");
   $("#textureInputMethodImage, #textureInputMethodColor, #uploadNewTextureButton").addClass("d-none");
   resetButton();
+  modelLoaded = false;
 }
 
 

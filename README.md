@@ -75,4 +75,3 @@ Supervisor: Ilic Stefan<br>
 
 ## License
 This project is under **MIT** license. <br>
-
